@@ -1,0 +1,869 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gotcha</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<style>
+/* Layout: one full-screen 3D stage; a thin top bar, one action pill at the bottom, and a paper slip that opens over the stage. */
+:root {
+  --bg: #efdde3;
+  --bg-deep: #d9bfc9;
+  --ink: #2b2228;
+  --ink-soft: #77656f;
+  --pink: #e9879f;
+  --pink-ink: #a8445e;
+  --chip: rgba(255, 255, 255, 0.72);
+  --chip-line: rgba(43, 34, 40, 0.1);
+  --paper: #fffdf9;
+  --paper-ink: #2b2228;
+  --paper-soft: #8b7882;
+  --scrim: rgba(43, 34, 40, 0.28);
+  --font-display: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Arial Rounded MT Bold", ui-rounded, system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1e171b; --bg-deep: #120d10; --ink: #f4ecef; --ink-soft: #b9a8b1;
+    --pink: #f0a0b5; --pink-ink: #f6bccb; --chip: rgba(46, 36, 41, 0.78); --chip-line: rgba(255, 255, 255, 0.1);
+    --scrim: rgba(10, 6, 8, 0.55); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1e171b; --bg-deep: #120d10; --ink: #f4ecef; --ink-soft: #b9a8b1;
+  --pink: #f0a0b5; --pink-ink: #f6bccb; --chip: rgba(46, 36, 41, 0.78); --chip-line: rgba(255, 255, 255, 0.1);
+  --scrim: rgba(10, 6, 8, 0.55); color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: radial-gradient(120% 80% at 50% 30%, var(--bg) 0%, var(--bg) 45%, var(--bg-deep) 100%);
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-display);
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+.app { position: relative; height: 100%; }
+#stage { position: absolute; inset: 0; touch-action: none; }
+#stage canvas { display: block; width: 100%; height: 100%; }
+
+.bar {
+  position: absolute; inset: 0 0 auto;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding-top: 16px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  pointer-events: none;
+}
+.brand { display: flex; flex-direction: column; gap: 2px; }
+.brand h1 { margin: 0; font-size: 1.5rem; font-weight: 900; letter-spacing: 0.01em; line-height: 1; }
+.brand span { font-size: 0.75rem; color: var(--ink-soft); letter-spacing: 0.08em; }
+.bar-right { display: flex; gap: 8px; align-items: center; pointer-events: auto; }
+.chip {
+  font: 500 0.78rem/1 var(--font-display);
+  color: var(--ink-soft);
+  background: var(--chip);
+  border: 1px solid var(--chip-line);
+  border-radius: 999px;
+  padding: 8px 12px;
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.chip b { color: var(--ink); font-weight: 700; }
+button.chip { cursor: pointer; }
+button.chip:hover { color: var(--ink); }
+
+.dock {
+  position: absolute; inset: auto 0 0;
+  display: flex; justify-content: center;
+  padding-bottom: 24px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  pointer-events: none;
+}
+#action {
+  pointer-events: auto;
+  font: 700 1rem/1 var(--font-display);
+  color: #fff;
+  background: var(--pink-ink);
+  border: 0; border-radius: 999px;
+  padding: 16px 28px;
+  min-width: 220px;
+  cursor: pointer;
+  box-shadow: 0 10px 24px -10px rgba(168, 68, 94, 0.6);
+  transition: transform 0.15s ease, opacity 0.2s ease;
+}
+:root[data-theme="dark"] #action { color: #2b2228; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #action { color: #2b2228; } }
+#action:hover { transform: translateY(-1px); }
+#action:active { transform: translateY(1px); }
+#action:disabled { opacity: 0.55; cursor: default; transform: none; }
+#action .jp { font-weight: 500; opacity: 0.8; margin-left: 6px; font-size: 0.85em; }
+button:focus-visible { outline: 3px solid var(--pink); outline-offset: 3px; }
+
+#slip {
+  position: absolute; inset: 0;
+  display: flex; align-items: flex-end; justify-content: center;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 24px;
+  box-sizing: border-box;
+  background: var(--scrim);
+  animation: fade 0.3s ease both;
+}
+.paper {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%; max-width: 400px;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 31px, rgba(233, 135, 159, 0.16) 31px 32px),
+    var(--paper);
+  color: var(--paper-ink);
+  border-radius: 6px;
+  padding: 28px 28px 24px;
+  box-shadow: 0 30px 60px -20px rgba(20, 10, 15, 0.45), 0 2px 0 rgba(0, 0, 0, 0.04);
+  display: flex; flex-direction: column; gap: 20px;
+  animation: unfold 0.55s cubic-bezier(.2, .9, .25, 1.15) both;
+  transform-origin: 50% 0%;
+}
+.paper::before {
+  content: ""; position: absolute; inset: 0 0 auto; height: 50%;
+  border-bottom: 1px dashed rgba(43, 34, 40, 0.12);
+  pointer-events: none;
+}
+.slip-meta {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--paper-soft);
+  font-variant-numeric: tabular-nums;
+}
+.slip-meta .stamp {
+  color: var(--pink-ink); border: 1.5px solid currentColor; border-radius: 4px;
+  padding: 3px 6px; letter-spacing: 0.06em; transform: rotate(-4deg); text-transform: none;
+}
+:root[data-theme="dark"] .slip-meta .stamp { color: #a8445e; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .slip-meta .stamp { color: #a8445e; } }
+#slip-text {
+  margin: 0;
+  font-size: clamp(1.25rem, 5.2vw, 1.5rem);
+  font-weight: 700; line-height: 1.5;
+  text-wrap: balance;
+}
+.slip-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.slip-actions button {
+  font: 700 0.9rem/1 var(--font-display);
+  border-radius: 999px; padding: 12px 18px; cursor: pointer;
+  border: 1.5px solid #a8445e; background: #a8445e; color: #fff;
+}
+.slip-actions button.ghost { background: transparent; color: #a8445e; }
+
+@keyframes fade { from { opacity: 0; } }
+@keyframes unfold { from { opacity: 0; transform: perspective(700px) rotateX(-70deg) translateY(-20px); } }
+@media (prefers-reduced-motion: reduce) {
+  #slip, .paper { animation-duration: 0.01s; }
+}
+@media (max-width: 420px) {
+  .brand h1 { font-size: 1.3rem; }
+  #action { min-width: 0; width: 100%; max-width: 340px; }
+}
+</style>
+</head>
+<body>
+<main class="app">
+  <div id="stage" aria-label="A white Japanese gachapon machine full of pink capsules"></div>
+
+  <header class="bar">
+    <div class="brand">
+      <h1>Gotcha</h1>
+      <span>ガチャガチャ · daily affirmations</span>
+    </div>
+    <div class="bar-right">
+      <span class="chip" id="count" aria-live="polite"></span>
+      <button class="chip" id="sound" type="button" aria-pressed="true">Sound on</button>
+    </div>
+  </header>
+
+  <div class="dock">
+    <button id="action" type="button">Turn the handle<span class="jp">まわす</span></button>
+  </div>
+
+  <div id="slip" role="dialog" aria-modal="true" aria-labelledby="slip-text" hidden>
+    <div class="paper">
+      <div class="slip-meta">
+        <span id="slip-no">No. 1 / 9</span>
+        <span class="stamp">今日のことば</span>
+      </div>
+      <p id="slip-text"></p>
+      <div class="slip-actions">
+        <button class="ghost" id="keep" type="button">Close</button>
+        <button id="again" type="button">Turn again</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+"use strict";
+
+/* ---------- Messages & shuffle deck ---------- */
+const MESSAGES = [
+  "I am living my dream life. I have my dream career and money flows easily and effortlessly to me.",
+  "I am extremely attractive both physically and emotionally. My energy attracts friends and romantic interests with little to no effort.",
+  "I easily attract anyone I want. I am extremely attractive and I can attract anyone I want in my love life.",
+  "I have the wealth to afford anything I want. I am living a luxurious lifestyle. I do not work hard, money comes to me easily.",
+  "I am special, one of a kind and this makes me shine. I attract opportunities to advance in all areas of my life with little effort.",
+  "My dream life is falling into place. I always surpass my own expectations.",
+  "I'm so grateful that I'm living my dream life. I have everything I ever wanted.",
+  "I am the best at everything I do and I gain widespread recognition & notoriety for my accomplishments.",
+  "I attract positive attention everywhere I go. I am in the spotlight, my reputation precedes me."
+];
+const DECK_KEY = "gotcha.deck.v1";
+const SOUND_KEY = "gotcha.sound.v1";
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* storage unavailable */ } }
+};
+function shuffled(n) {
+  const a = [...Array(n).keys()];
+  for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+function newDeck(lastIdx, round) {
+  const order = shuffled(MESSAGES.length);
+  if (order[0] === lastIdx) [order[0], order[1]] = [order[1], order[0]];
+  return { order, pos: 0, round };
+}
+function loadDeck() {
+  try {
+    const d = JSON.parse(store.get(DECK_KEY));
+    if (d && Array.isArray(d.order) && d.order.length === MESSAGES.length && d.pos >= 0 && d.pos <= MESSAGES.length) return d;
+  } catch (e) { /* fall through */ }
+  return newDeck(null, 1);
+}
+let deck = loadDeck();
+function drawMessage() {
+  if (deck.pos >= deck.order.length) deck = newDeck(deck.order[deck.order.length - 1], deck.round + 1);
+  const idx = deck.order[deck.pos++];
+  store.set(DECK_KEY, JSON.stringify(deck));
+  return { text: MESSAGES[idx], no: deck.pos };
+}
+
+/* ---------- DOM ---------- */
+const $ = (id) => document.getElementById(id);
+const stageEl = $("stage"), actionBtn = $("action"), countEl = $("count"), soundBtn = $("sound");
+const slip = $("slip"), slipText = $("slip-text"), slipNo = $("slip-no");
+function renderCount() {
+  const left = MESSAGES.length - deck.pos;
+  countEl.innerHTML = left > 0 ? `<b>${left}</b> of ${MESSAGES.length} left` : `New round next turn`;
+}
+renderCount();
+
+/* ---------- Sound (tiny synth) ---------- */
+let soundOn = store.get(SOUND_KEY) !== "off";
+let actx = null;
+function syncSoundBtn() { soundBtn.textContent = soundOn ? "Sound on" : "Sound off"; soundBtn.setAttribute("aria-pressed", String(soundOn)); }
+syncSoundBtn();
+soundBtn.addEventListener("click", () => { soundOn = !soundOn; store.set(SOUND_KEY, soundOn ? "on" : "off"); syncSoundBtn(); });
+function audio() {
+  if (!soundOn) return null;
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === "suspended") actx.resume();
+    return actx;
+  } catch (e) { return null; }
+}
+function sfx(kind) {
+  const ac = audio(); if (!ac) return;
+  const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+  o.connect(g); g.connect(ac.destination);
+  if (kind === "click") {
+    o.type = "square"; o.frequency.setValueAtTime(1800, t); o.frequency.exponentialRampToValueAtTime(600, t + 0.03);
+    g.gain.setValueAtTime(0.06, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+    o.start(t); o.stop(t + 0.06);
+  } else if (kind === "thunk") {
+    o.type = "sine"; o.frequency.setValueAtTime(220, t); o.frequency.exponentialRampToValueAtTime(70, t + 0.18);
+    g.gain.setValueAtTime(0.25, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+    o.start(t); o.stop(t + 0.24);
+  } else if (kind === "tap") {
+    o.type = "triangle"; o.frequency.setValueAtTime(900, t); o.frequency.exponentialRampToValueAtTime(400, t + 0.06);
+    g.gain.setValueAtTime(0.08, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+    o.start(t); o.stop(t + 0.09);
+  } else if (kind === "pop") {
+    o.type = "sine"; o.frequency.setValueAtTime(320, t); o.frequency.exponentialRampToValueAtTime(1200, t + 0.12);
+    g.gain.setValueAtTime(0.18, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+    o.start(t); o.stop(t + 0.22);
+  }
+}
+
+/* ---------- Three.js setup ---------- */
+const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const M = reduceMotion ? 0.35 : 1; // duration multiplier
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setClearColor(0x000000, 0);
+stageEl.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
+const camTarget = new THREE.Vector3(0, 1.85, 0.9);
+const homeCam = { pos: new THREE.Vector3(), target: camTarget.clone() };
+
+// Soft studio environment for reflections
+(function buildEnv() {
+  const c = document.createElement("canvas"); c.width = 512; c.height = 256;
+  const g = c.getContext("2d");
+  const grd = g.createLinearGradient(0, 0, 0, 256);
+  grd.addColorStop(0, "#ffffff"); grd.addColorStop(0.5, "#f1e6ea"); grd.addColorStop(1, "#b9a9b0");
+  g.fillStyle = grd; g.fillRect(0, 0, 512, 256);
+  g.fillStyle = "#ffffff";
+  g.fillRect(60, 30, 120, 50); g.fillRect(320, 40, 140, 40); g.fillRect(200, 10, 90, 25);
+  const tex = new THREE.CanvasTexture(c);
+  tex.mapping = THREE.EquirectangularReflectionMapping;
+  tex.encoding = THREE.sRGBEncoding;
+  const pm = new THREE.PMREMGenerator(renderer);
+  scene.environment = pm.fromEquirectangular(tex).texture;
+  tex.dispose(); pm.dispose();
+})();
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0xd9c2ca, 0.45));
+const sun = new THREE.DirectionalLight(0xffffff, 1.25);
+sun.position.set(2.2, 9, 5);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+Object.assign(sun.shadow.camera, { left: -4, right: 4, top: 6, bottom: -3, near: 1, far: 20 });
+sun.shadow.radius = 4;
+sun.shadow.bias = -0.0008;
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0xffe9ef, 0.35);
+fill.position.set(-4, 3, 3);
+scene.add(fill);
+
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.ShadowMaterial({ opacity: 0.14 }));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true;
+scene.add(ground);
+
+// Everything that turns with a drag lives on this turntable
+const stage = new THREE.Group();
+scene.add(stage);
+
+/* ---------- Helpers ---------- */
+function roundedRectShape(w, h, r) {
+  const s = new THREE.Shape(), x = -w / 2, y = -h / 2;
+  s.moveTo(x + r, y);
+  s.lineTo(x + w - r, y); s.quadraticCurveTo(x + w, y, x + w, y + r);
+  s.lineTo(x + w, y + h - r); s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  s.lineTo(x + r, y + h); s.quadraticCurveTo(x, y + h, x, y + h - r);
+  s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y);
+  return s;
+}
+function roundedBox(w, h, d, r, seg = 4) {
+  const b = r * 0.5;
+  const shape = roundedRectShape(w - 2 * b, h - 2 * b, Math.max(0.001, r - b));
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: d - 2 * b, bevelEnabled: true, bevelThickness: b, bevelSize: b, bevelSegments: seg, curveSegments: 10
+  });
+  geo.translate(0, 0, -(d - 2 * b) / 2);
+  return geo;
+}
+function roundRect(g, x, y, w, h, r) {
+  g.beginPath(); g.moveTo(x + r, y);
+  g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+}
+const lerp = (a, b, t) => a + (b - a) * t;
+const ease = {
+  inOut: (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2,
+  out: (t) => 1 - Math.pow(1 - t, 3),
+  back: (t) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); }
+};
+
+/* ---------- Machine ---------- */
+const W = 2.4, D = 2.2, BODY_H = 2.3, GLASS_H = 1.6, CAP_H = 0.45;
+const FRONT = D / 2;
+
+const whiteMat = new THREE.MeshPhysicalMaterial({ color: 0xf8f6f7, roughness: 0.36, clearcoat: 0.6, clearcoatRoughness: 0.22 });
+const trimMat = new THREE.MeshPhysicalMaterial({ color: 0xebe5e8, roughness: 0.45, clearcoat: 0.3 });
+const glassMat = new THREE.MeshPhysicalMaterial({
+  color: 0xffffff, roughness: 0.04, metalness: 0, transparent: true, opacity: 0.13,
+  clearcoat: 1, depthWrite: false, side: THREE.DoubleSide, envMapIntensity: 1.4
+});
+
+const body = new THREE.Mesh(roundedBox(W, BODY_H, D, 0.22), whiteMat);
+body.position.y = BODY_H / 2; body.castShadow = true; body.receiveShadow = true;
+stage.add(body);
+
+// Base plinth
+const plinth = new THREE.Mesh(roundedBox(W + 0.12, 0.14, D + 0.12, 0.06), trimMat);
+plinth.position.y = 0.07; plinth.castShadow = true; plinth.receiveShadow = true;
+stage.add(plinth);
+
+const GLASS_Y0 = BODY_H, GLASS_Y1 = BODY_H + GLASS_H;
+const glass = new THREE.Mesh(roundedBox(W - 0.1, GLASS_H, D - 0.1, 0.12), glassMat);
+glass.position.y = GLASS_Y0 + GLASS_H / 2;
+glass.renderOrder = 10;
+stage.add(glass);
+
+// Corner pillars
+for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+  const p = new THREE.Mesh(roundedBox(0.16, GLASS_H + 0.02, 0.16, 0.05, 2), whiteMat);
+  p.position.set(sx * (W / 2 - 0.1), GLASS_Y0 + GLASS_H / 2, sz * (D / 2 - 0.1));
+  p.castShadow = true;
+  stage.add(p);
+}
+// Floor of the capsule bin
+const binFloor = new THREE.Mesh(new THREE.BoxGeometry(W - 0.2, 0.02, D - 0.2), trimMat);
+binFloor.position.y = GLASS_Y0 + 0.01; binFloor.receiveShadow = true;
+stage.add(binFloor);
+
+// Top cap
+const cap = new THREE.Mesh(roundedBox(W + 0.06, CAP_H, D + 0.06, 0.16), whiteMat);
+cap.position.y = GLASS_Y1 + CAP_H / 2; cap.castShadow = true;
+stage.add(cap);
+
+// Labels (painted onto canvases after the font loads)
+function labelPlane(w, h, cw, ch) {
+  const c = document.createElement("canvas"); c.width = cw; c.height = ch;
+  const tex = new THREE.CanvasTexture(c);
+  tex.encoding = THREE.sRGBEncoding; tex.anisotropy = 4;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
+    new THREE.MeshPhysicalMaterial({ map: tex, transparent: true, roughness: 0.4, clearcoat: 0.4 }));
+  return { mesh: m, canvas: c, tex };
+}
+const topLabel = labelPlane(W - 0.2, CAP_H - 0.12, 1024, 150);
+topLabel.mesh.position.set(0, GLASS_Y1 + CAP_H / 2, FRONT + 0.031);
+stage.add(topLabel.mesh);
+
+const FRONT_LABEL_H = 2.05, FRONT_LABEL_Y = 0.25 + FRONT_LABEL_H / 2;
+const frontLabel = labelPlane(2.1, FRONT_LABEL_H, 1024, 1000);
+frontLabel.mesh.position.set(0, FRONT_LABEL_Y, FRONT + 0.004);
+stage.add(frontLabel.mesh);
+
+const KNOB_Y = 1.55, EXIT_Y = 0.62, EXIT_W = 0.98, EXIT_H = 0.66;
+// canvas coords from world y
+const toCanvasY = (y) => (FRONT_LABEL_Y + FRONT_LABEL_H / 2 - y) / FRONT_LABEL_H * 1000;
+const toCanvasX = (x) => (x + 1.05) / 2.1 * 1024;
+
+function paintLabels() {
+  // Top band
+  {
+    const g = topLabel.canvas.getContext("2d"), w = 1024, h = 150;
+    g.clearRect(0, 0, w, h);
+    roundRect(g, 4, 6, w - 8, h - 12, 40);
+    const grd = g.createLinearGradient(0, 0, 0, h); grd.addColorStop(0, "#f29bb2"); grd.addColorStop(1, "#e47f99");
+    g.fillStyle = grd; g.fill();
+    g.fillStyle = "#ffffff"; g.textBaseline = "middle";
+    g.font = '900 78px "Zen Maru Gothic", sans-serif'; g.textAlign = "left";
+    g.fillText("ガチャガチャ", 54, 80);
+    g.font = '900 64px "Zen Maru Gothic", sans-serif'; g.textAlign = "right";
+    g.fillText("GOTCHA", w - 58, 80);
+    topLabel.tex.needsUpdate = true;
+  }
+  // Front panel
+  {
+    const g = frontLabel.canvas.getContext("2d"), w = 1024, h = 1000;
+    g.clearRect(0, 0, w, h);
+    const ky = toCanvasY(KNOB_Y);
+    // knob well
+    g.fillStyle = "rgba(233,135,159,0.16)";
+    g.beginPath(); g.arc(w / 2, ky, 300, 0, Math.PI * 2); g.fill();
+    // price, left
+    g.fillStyle = "#a8445e"; g.textAlign = "center"; g.textBaseline = "middle";
+    g.font = '900 58px "Zen Maru Gothic", sans-serif'; g.fillText("1回", 112, ky - 60);
+    g.font = '900 62px "Zen Maru Gothic", sans-serif'; g.fillText("¥200", 112, ky + 14);
+    g.font = '700 26px "Zen Maru Gothic", sans-serif'; g.fillStyle = "#8b7882"; g.fillText("ONE TURN", 112, ky + 70);
+    // turn instruction, right, with a curved arrow
+    g.fillStyle = "#a8445e";
+    g.font = '900 54px "Zen Maru Gothic", sans-serif'; g.fillText("まわす", 912, ky - 40);
+    g.font = '700 26px "Zen Maru Gothic", sans-serif'; g.fillStyle = "#8b7882"; g.fillText("TURN", 912, ky + 8);
+    g.strokeStyle = "#e9879f"; g.lineWidth = 12; g.lineCap = "round";
+    g.beginPath(); g.arc(w / 2, ky, 330, -0.55, 0.45); g.stroke();
+    const ax = w / 2 + 330 * Math.cos(0.45), ay = ky + 330 * Math.sin(0.45);
+    g.fillStyle = "#e9879f"; g.beginPath();
+    g.moveTo(ax - 34, ay - 6); g.lineTo(ax + 20, ay - 22); g.lineTo(ax + 6, ay + 34); g.closePath(); g.fill();
+    // exit opening (the dark mouth the capsule rolls out of)
+    const ex = toCanvasX(-EXIT_W / 2), ey = toCanvasY(EXIT_Y + EXIT_H / 2);
+    const ew = EXIT_W / 2.1 * 1024, eh = EXIT_H / FRONT_LABEL_H * 1000;
+    roundRect(g, ex, ey, ew, eh, 46);
+    const dg = g.createLinearGradient(0, ey, 0, ey + eh); dg.addColorStop(0, "#120c0f"); dg.addColorStop(1, "#3b2d34");
+    g.fillStyle = dg; g.fill();
+    g.fillStyle = "#8b7882"; g.font = '700 24px "Zen Maru Gothic", sans-serif';
+    g.fillText("とりだしぐち  ·  TAKE OUT", w / 2, ey - 26);
+    frontLabel.tex.needsUpdate = true;
+  }
+}
+
+// Exit bezel and flap
+{
+  const outer = roundedRectShape(EXIT_W + 0.16, EXIT_H + 0.16, 0.2);
+  outer.holes.push(roundedRectShape(EXIT_W, EXIT_H, 0.1));
+  const bezelGeo = new THREE.ExtrudeGeometry(outer, { depth: 0.05, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.02, bevelSegments: 3, curveSegments: 10 });
+  const bezel = new THREE.Mesh(bezelGeo, whiteMat);
+  bezel.position.set(0, EXIT_Y, FRONT);
+  bezel.castShadow = true;
+  stage.add(bezel);
+}
+const flapPivot = new THREE.Group();
+flapPivot.position.set(0, EXIT_Y + EXIT_H / 2 - 0.02, FRONT + 0.06);
+const flap = new THREE.Mesh(new THREE.PlaneGeometry(EXIT_W - 0.04, EXIT_H - 0.04),
+  new THREE.MeshPhysicalMaterial({ color: 0xd8c4cc, transparent: true, opacity: 0.38, roughness: 0.15, clearcoat: 1, depthWrite: false, side: THREE.DoubleSide }));
+flap.position.y = -(EXIT_H - 0.04) / 2;
+flap.renderOrder = 11;
+flapPivot.add(flap);
+stage.add(flapPivot);
+
+// Knob
+const knob = new THREE.Group();
+knob.position.set(0, KNOB_Y, FRONT);
+{
+  const disk = new THREE.Mesh(new THREE.CylinderGeometry(0.56, 0.6, 0.14, 64), whiteMat);
+  disk.rotation.x = Math.PI / 2; disk.position.z = 0.07; disk.castShadow = true;
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.56, 0.035, 12, 64), trimMat);
+  ring.position.z = 0.14;
+  const gripMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.3, clearcoat: 0.8, emissive: 0xe9879f, emissiveIntensity: 0 });
+  const grip = new THREE.Mesh(roundedBox(1.02, 0.24, 0.24, 0.1), gripMat);
+  grip.position.z = 0.24; grip.castShadow = true;
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.06, 32),
+    new THREE.MeshPhysicalMaterial({ color: 0xe9879f, roughness: 0.35, clearcoat: 0.8 }));
+  hub.rotation.x = Math.PI / 2; hub.position.z = 0.37;
+  knob.add(disk, ring, grip, hub);
+  knob.userData.grip = gripMat;
+  knob.traverse((o) => { if (o.isMesh) o.userData.kind = "knob"; });
+}
+stage.add(knob);
+
+/* ---------- Capsules ---------- */
+const R = 0.29;
+const CAPSULE_COLORS = [0xf2a2b6, 0xf7bccb, 0xec8ea6, 0xf5c3cd, 0xf0afc3, 0xe98aa3];
+const geoTop = new THREE.SphereGeometry(R, 40, 20, 0, Math.PI * 2, 0, Math.PI / 2);
+const geoBottom = new THREE.SphereGeometry(R, 40, 20, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2);
+const geoBand = new THREE.CylinderGeometry(R * 1.02, R * 1.02, R * 0.16, 40, 1, true);
+const geoPaper = new THREE.CylinderGeometry(R * 0.28, R * 0.28, R * 1.05, 20);
+const clearMat = new THREE.MeshPhysicalMaterial({
+  color: 0xfff4f7, transparent: true, opacity: 0.5, roughness: 0.06, clearcoat: 1, depthWrite: false, envMapIntensity: 1.5
+});
+const paperMat = new THREE.MeshStandardMaterial({ color: 0xfff6ea, roughness: 0.85 });
+const tieMat = new THREE.MeshPhysicalMaterial({ color: 0xc9506f, roughness: 0.4, clearcoat: 0.5 });
+const geoTie = new THREE.TorusGeometry(R * 0.3, R * 0.05, 8, 24);
+const colorMats = new Map();
+function colorMat(c) {
+  if (!colorMats.has(c)) colorMats.set(c, new THREE.MeshPhysicalMaterial({ color: c, roughness: 0.3, clearcoat: 0.8, clearcoatRoughness: 0.15 }));
+  return colorMats.get(c);
+}
+function makeCapsule(color, interactive) {
+  const g = new THREE.Group();
+  const bottom = new THREE.Mesh(geoBottom, colorMat(color));
+  const band = new THREE.Mesh(geoBand, colorMat(color));
+  bottom.castShadow = band.castShadow = true;
+  const lidPivot = new THREE.Group(); lidPivot.position.set(0, 0, -R);
+  const top = new THREE.Mesh(geoTop, clearMat); top.position.set(0, 0.002, R); top.renderOrder = 5;
+  lidPivot.add(top);
+  const paper = new THREE.Group();
+  const roll = new THREE.Mesh(geoPaper, paperMat); roll.rotation.z = Math.PI / 2;
+  const tie = new THREE.Mesh(geoTie, tieMat); tie.rotation.y = Math.PI / 2;
+  paper.add(roll, tie); paper.position.y = R * 0.18;
+  g.add(bottom, band, paper, lidPivot);
+  g.userData = { lidPivot, paper, color };
+  if (interactive) g.traverse((o) => { if (o.isMesh) o.userData.kind = "capsule"; });
+  return g;
+}
+
+// Heap-settle placement inside the glass bin
+const BIN = { x: W / 2 - 0.2 - R, z: D / 2 - 0.2 - R, y0: GLASS_Y0 + 0.02 + R, y1: GLASS_Y1 - R - 0.04 };
+const pile = [];
+function settleY(x, z) {
+  let y = BIN.y0;
+  for (const c of pile) {
+    const b = c.userData.base, dx = x - b.x, dz = z - b.z, d2 = dx * dx + dz * dz, s = 2 * R * 0.97;
+    if (d2 < s * s) y = Math.max(y, b.y + Math.sqrt(s * s - d2));
+  }
+  return y;
+}
+function addToPile(fromAbove) {
+  let best = null;
+  for (let i = 0; i < 50; i++) {
+    const x = (Math.random() * 2 - 1) * BIN.x, z = (Math.random() * 2 - 1) * BIN.z, y = settleY(x, z);
+    if (!best || y < best.y) best = { x, y, z };
+  }
+  if (!best || best.y > BIN.y1) return false;
+  const c = makeCapsule(CAPSULE_COLORS[Math.floor(Math.random() * CAPSULE_COLORS.length)], false);
+  c.rotation.set(Math.random() * Math.PI * 2, Math.random() * Math.PI * 2, Math.random() * Math.PI * 2);
+  c.userData.base = new THREE.Vector3(best.x, best.y, best.z);
+  c.userData.phase = Math.random() * Math.PI * 2;
+  c.position.copy(c.userData.base);
+  if (fromAbove) { c.position.y = GLASS_Y1 + 0.6; c.userData.dropFrom = c.position.y; }
+  stage.add(c); pile.push(c);
+  return true;
+}
+for (let i = 0; i < 26; i++) addToPile(false);
+
+/* ---------- Tweens ---------- */
+const tweens = new Set();
+function tween(dur, fn, ef = ease.inOut) {
+  return new Promise((resolve) => {
+    tweens.add({ t0: performance.now(), dur: Math.max(1, dur * 1000), fn, ef, resolve });
+  });
+}
+const wait = (s) => tween(s, () => {});
+function stepTweens(now) {
+  for (const tw of tweens) {
+    const p = Math.min(1, (now - tw.t0) / tw.dur);
+    tw.fn(tw.ef(p), p);
+    if (p >= 1) { tweens.delete(tw); tw.resolve(); }
+  }
+}
+
+/* ---------- Camera fit ---------- */
+function fitCamera() {
+  const w = stageEl.clientWidth || window.innerWidth, h = stageEl.clientHeight || window.innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  const tanH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const needHalfH = 3.6, needHalfW = 2.05;
+  const dist = Math.max(needHalfH / tanH, needHalfW / (tanH * camera.aspect));
+  const dir = new THREE.Vector3(0, 0.22, 1).normalize();
+  homeCam.pos.copy(homeCam.target).addScaledVector(dir, dist);
+  if (state === "idle" || state === "turning" || state === "dispensed") {
+    camera.position.copy(homeCam.pos); camTarget.copy(homeCam.target);
+  }
+  camera.updateProjectionMatrix();
+}
+
+/* ---------- State machine ---------- */
+let state = "idle";
+let dispensed = null;
+let jiggleUntil = 0;
+let currentMsg = null;
+
+function setAction(label, jp, disabled) {
+  actionBtn.innerHTML = label + (jp ? `<span class="jp">${jp}</span>` : "");
+  actionBtn.disabled = !!disabled;
+}
+function syncUI() {
+  if (state === "idle") setAction("Turn the handle", "まわす", false);
+  else if (state === "turning") setAction("Turning…", "", true);
+  else if (state === "dispensed") setAction("Open the capsule", "あける", false);
+  else if (state === "opening") setAction("Opening…", "", true);
+  else if (state === "closing") setAction("…", "", true);
+}
+
+async function turnHandle() {
+  if (state !== "idle") return;
+  state = "turning"; syncUI(); audio();
+  // swing the turntable back to face front
+  const yaw0 = stage.rotation.y;
+  if (Math.abs(yaw0) > 0.01) await tween(0.35 * M, (p) => { stage.rotation.y = lerp(yaw0, 0, p); });
+  jiggleUntil = performance.now() + 1300 * M;
+  const start = knob.rotation.z;
+  for (let i = 0; i < 4; i++) {
+    await tween(0.26 * M, (p) => { knob.rotation.z = start - (i + p) * Math.PI / 2; });
+    sfx("click");
+  }
+  knob.rotation.z = start - Math.PI * 2;
+  // a capsule leaves the bin
+  const taken = pile.reduce((a, c) => (c.userData.base.y > a.userData.base.y ? c : a), pile[0]);
+  pile.splice(pile.indexOf(taken), 1);
+  const color = taken.userData.color;
+  tween(0.25 * M, (p) => taken.scale.setScalar(1 - p)).then(() => stage.remove(taken));
+
+  // out through the flap
+  const c = makeCapsule(color, true);
+  c.position.set(0, EXIT_Y, FRONT - 0.4);
+  c.rotation.set(0.6, 0.4, 0.3);
+  stage.add(c); dispensed = c;
+  sfx("thunk");
+  const z0 = FRONT - 0.4, z1 = FRONT + 0.35;
+  await tween(0.32 * M, (p) => {
+    c.position.z = lerp(z0, z1, p);
+    flapPivot.rotation.x = -Math.sin(Math.min(1, p * 1.3) * Math.PI) * 1.05;
+  }, ease.out);
+  flapPivot.rotation.x = 0;
+  const yA = EXIT_Y, zA = z1, zB = FRONT + 1.2, rx0 = -0.55 - (zB - zA) / R;
+  let bounced = 0;
+  await tween(0.85 * M, (p, raw) => {
+    c.position.z = lerp(zA, zB, p);
+    c.position.y = R + (yA - R) * Math.pow(1 - raw, 2) * Math.abs(Math.cos(raw * Math.PI * 2.5));
+    c.rotation.x = rx0 + (c.position.z - zA) / R;
+    if (raw > 0.2 && bounced === 0) { bounced = 1; sfx("tap"); }
+    if (raw > 0.6 && bounced === 1) { bounced = 2; sfx("tap"); }
+  }, ease.out);
+  c.userData.rest = c.position.clone();
+  state = "dispensed"; syncUI();
+
+  if (pile.length < 12) { let n = 0; while (n < 12 && addToPile(true)) n++; }
+}
+
+async function openCapsule() {
+  if (state !== "dispensed" || !dispensed) return;
+  state = "opening"; syncUI(); audio();
+  const c = dispensed;
+  currentMsg = drawMessage();
+  renderCount();
+
+  const yaw0 = stage.rotation.y;
+  // lift the capsule toward the viewer and frame it in the upper part of the screen
+  const S = 1.7, cy = 1.35, cz = c.position.z + 0.6;
+  const tanH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const dist = Math.max(1.6 / tanH, 1.0 / (tanH * camera.aspect));
+  const toT = new THREE.Vector3(0, cy - tanH * dist * 0.42, cz);
+  const toPos = new THREE.Vector3(0, toT.y + dist * 0.18, cz + dist);
+  const fromPos = camera.position.clone(), fromT = camTarget.clone();
+  const p0 = c.position.clone(), r0 = c.rotation.clone();
+  const tx = Math.round(r0.x / (Math.PI * 2)) * Math.PI * 2;
+  await tween(0.8 * M, (p) => {
+    stage.rotation.y = lerp(yaw0, 0, p);
+    camera.position.lerpVectors(fromPos, toPos, p);
+    camTarget.lerpVectors(fromT, toT, p);
+    c.position.set(0, lerp(p0.y, cy, p), lerp(p0.z, cz, p));
+    c.scale.setScalar(lerp(1, S, p));
+    c.rotation.set(lerp(r0.x, tx + 0.5, p), lerp(r0.y, Math.PI * 2, p), lerp(r0.z, 0, p));
+  });
+  c.rotation.set(0.5, 0, 0);
+  await tween(0.45 * M, (p, raw) => { c.rotation.z = Math.sin(raw * Math.PI * 8) * 0.16 * (1 - raw); }, (t) => t);
+  sfx("pop");
+  const { lidPivot, paper } = c.userData;
+  await tween(0.55 * M, (p) => {
+    lidPivot.rotation.x = -1.95 * p;
+    paper.position.y = lerp(R * 0.18, R * 1.55, p);
+    paper.position.z = lerp(0, R * 0.35, p);
+    paper.rotation.x = p * 0.35;
+  }, ease.back);
+  showSlip();
+  state = "reading";
+}
+
+function showSlip() {
+  slipText.textContent = currentMsg.text;
+  slipNo.textContent = `No. ${currentMsg.no} / ${MESSAGES.length}`;
+  slip.hidden = false;
+  actionBtn.hidden = true;
+  $("again").focus();
+}
+
+async function closeSlip(turnAgain) {
+  if (state !== "reading") return;
+  state = "closing"; syncUI();
+  slip.hidden = true;
+  actionBtn.hidden = false;
+  const c = dispensed;
+  const fromPos = camera.position.clone(), fromT = camTarget.clone();
+  await tween(0.6 * M, (p) => {
+    camera.position.lerpVectors(fromPos, homeCam.pos, p);
+    camTarget.lerpVectors(fromT, homeCam.target, p);
+    if (c) c.scale.setScalar(Math.max(0.001, 1.7 * (1 - p)));
+  });
+  if (c) stage.remove(c);
+  dispensed = null;
+  state = "idle"; syncUI();
+  actionBtn.focus();
+  if (turnAgain) turnHandle();
+}
+
+actionBtn.addEventListener("click", () => {
+  if (state === "idle") turnHandle();
+  else if (state === "dispensed") openCapsule();
+});
+$("again").addEventListener("click", () => closeSlip(true));
+$("keep").addEventListener("click", () => closeSlip(false));
+slip.addEventListener("click", (e) => { if (e.target === slip) closeSlip(false); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && state === "reading") closeSlip(false); });
+
+/* ---------- Pointer: tap knob / capsule, drag to turn the machine ---------- */
+const raycaster = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+let down = null, hoverKind = null;
+function pick(e) {
+  const r = renderer.domElement.getBoundingClientRect();
+  ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  const targets = [knob]; if (dispensed) targets.push(dispensed);
+  const hit = raycaster.intersectObjects(targets, true)[0];
+  return hit ? hit.object.userData.kind : null;
+}
+stageEl.addEventListener("pointerdown", (e) => {
+  down = { x: e.clientX, y: e.clientY, yaw: stage.rotation.y, moved: false };
+  stageEl.setPointerCapture(e.pointerId);
+});
+stageEl.addEventListener("pointermove", (e) => {
+  if (down) {
+    const dx = e.clientX - down.x;
+    if (Math.abs(dx) > 6) down.moved = true;
+    if (down.moved && (state === "idle" || state === "dispensed")) {
+      stage.rotation.y = THREE.MathUtils.clamp(down.yaw + dx * 0.008, -0.9, 0.9);
+    }
+    return;
+  }
+  hoverKind = pick(e);
+  const can = (hoverKind === "knob" && state === "idle") || (hoverKind === "capsule" && state === "dispensed");
+  stageEl.style.cursor = can ? "pointer" : "grab";
+});
+stageEl.addEventListener("pointerup", (e) => {
+  if (down && !down.moved) {
+    const k = pick(e);
+    if (k === "knob") turnHandle();
+    else if (k === "capsule") openCapsule();
+  }
+  down = null;
+});
+stageEl.addEventListener("pointercancel", () => { down = null; });
+
+/* ---------- Loop ---------- */
+const clock = new THREE.Clock();
+function frame(now) {
+  stepTweens(now);
+  const t = clock.getElapsedTime();
+  // bin jiggle while the handle turns, gentle drop-in for refills
+  const jig = now < jiggleUntil ? 1 : 0;
+  for (const c of pile) {
+    const b = c.userData.base;
+    if (c.userData.dropFrom !== undefined) {
+      c.position.y -= 0.12;
+      if (c.position.y <= b.y) { c.position.y = b.y; delete c.userData.dropFrom; }
+      continue;
+    }
+    c.position.x = b.x + (jig ? Math.sin(t * 38 + c.userData.phase) * 0.018 : 0);
+    c.position.y = b.y + (jig ? Math.abs(Math.sin(t * 31 + c.userData.phase)) * 0.025 : 0);
+  }
+  // waiting capsule: a small hop now and then to say "tap me"
+  if (state === "dispensed" && dispensed && !reduceMotion) {
+    const ph = t % 2.4;
+    dispensed.position.y = R + (ph < 0.35 ? Math.sin(ph / 0.35 * Math.PI) * 0.12 : 0);
+  }
+  // knob grip glows softly when it is ready to turn
+  knob.userData.grip.emissiveIntensity = state === "idle" ? (reduceMotion ? 0.12 : 0.1 + 0.1 * Math.sin(t * 3)) : 0;
+  camera.lookAt(camTarget);
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+
+/* ---------- Boot ---------- */
+window.addEventListener("resize", fitCamera);
+fitCamera();
+camera.lookAt(camTarget);
+syncUI();
+paintLabels();
+const fontReady = document.fonts && document.fonts.load
+  ? Promise.all([
+      document.fonts.load('900 64px "Zen Maru Gothic"', "ガチャ回まわすGOTCHA¥200"),
+      document.fonts.load('700 26px "Zen Maru Gothic"', "とりだしぐちTAKE OUT")
+    ])
+  : Promise.resolve();
+Promise.race([fontReady, new Promise((r) => setTimeout(r, 2500))]).then(paintLabels, paintLabels);
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
