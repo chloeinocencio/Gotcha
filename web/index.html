@@ -11,32 +11,32 @@
 <style>
 /* Layout: one full-screen 3D stage; a thin top bar, one action pill at the bottom, and a paper slip that opens over the stage. */
 :root {
-  --bg: #efdde3;
-  --bg-deep: #d9bfc9;
-  --ink: #2b2228;
-  --ink-soft: #77656f;
-  --pink: #e9879f;
-  --pink-ink: #a8445e;
-  --chip: rgba(255, 255, 255, 0.72);
-  --chip-line: rgba(43, 34, 40, 0.1);
-  --paper: #fffdf9;
-  --paper-ink: #2b2228;
-  --paper-soft: #8b7882;
-  --scrim: rgba(43, 34, 40, 0.28);
+  --bg: #e6edf6;
+  --bg-deep: #c6d3e5;
+  --ink: #18223a;
+  --ink-soft: #5d6b82;
+  --blue: #2f6fd0;
+  --blue-ink: #2559b0;
+  --chip: rgba(255, 255, 255, 0.74);
+  --chip-line: rgba(24, 34, 58, 0.1);
+  --paper: #ffffff;
+  --paper-ink: #18223a;
+  --paper-soft: #76839a;
+  --scrim: rgba(24, 34, 58, 0.3);
   --font-display: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Arial Rounded MT Bold", ui-rounded, system-ui, sans-serif;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #1e171b; --bg-deep: #120d10; --ink: #f4ecef; --ink-soft: #b9a8b1;
-    --pink: #f0a0b5; --pink-ink: #f6bccb; --chip: rgba(46, 36, 41, 0.78); --chip-line: rgba(255, 255, 255, 0.1);
-    --scrim: rgba(10, 6, 8, 0.55); color-scheme: dark;
+    --bg: #111722; --bg-deep: #090d14; --ink: #eef2f8; --ink-soft: #a7b3c4;
+    --blue: #7fa9ea; --blue-ink: #9cc0f2; --chip: rgba(30, 38, 52, 0.78); --chip-line: rgba(255, 255, 255, 0.1);
+    --scrim: rgba(4, 7, 12, 0.55); color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #1e171b; --bg-deep: #120d10; --ink: #f4ecef; --ink-soft: #b9a8b1;
-  --pink: #f0a0b5; --pink-ink: #f6bccb; --chip: rgba(46, 36, 41, 0.78); --chip-line: rgba(255, 255, 255, 0.1);
-  --scrim: rgba(10, 6, 8, 0.55); color-scheme: dark;
+  --bg: #111722; --bg-deep: #090d14; --ink: #eef2f8; --ink-soft: #a7b3c4;
+  --blue: #7fa9ea; --blue-ink: #9cc0f2; --chip: rgba(30, 38, 52, 0.78); --chip-line: rgba(255, 255, 255, 0.1);
+  --scrim: rgba(4, 7, 12, 0.55); color-scheme: dark;
 }
 [hidden] { display: none !important; }
 html, body { height: 100%; }
@@ -92,21 +92,21 @@ button.chip:hover { color: var(--ink); }
   pointer-events: auto;
   font: 700 1rem/1 var(--font-display);
   color: #fff;
-  background: var(--pink-ink);
+  background: var(--blue-ink);
   border: 0; border-radius: 999px;
   padding: 16px 28px;
   min-width: 220px;
   cursor: pointer;
-  box-shadow: 0 10px 24px -10px rgba(168, 68, 94, 0.6);
+  box-shadow: 0 10px 24px -10px rgba(37, 89, 176, 0.6);
   transition: transform 0.15s ease, opacity 0.2s ease;
 }
-:root[data-theme="dark"] #action { color: #2b2228; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #action { color: #2b2228; } }
+:root[data-theme="dark"] #action { color: #111722; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #action { color: #111722; } }
 #action:hover { transform: translateY(-1px); }
 #action:active { transform: translateY(1px); }
 #action:disabled { opacity: 0.55; cursor: default; transform: none; }
 #action .jp { font-weight: 500; opacity: 0.8; margin-left: 6px; font-size: 0.85em; }
-button:focus-visible { outline: 3px solid var(--pink); outline-offset: 3px; }
+button:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
 
 #slip {
   position: absolute; inset: 0;
@@ -123,19 +123,19 @@ button:focus-visible { outline: 3px solid var(--pink); outline-offset: 3px; }
   box-sizing: border-box;
   width: 100%; max-width: 400px;
   background:
-    repeating-linear-gradient(0deg, transparent 0 31px, rgba(233, 135, 159, 0.16) 31px 32px),
+    repeating-linear-gradient(0deg, transparent 0 31px, rgba(111, 163, 236, 0.18) 31px 32px),
     var(--paper);
   color: var(--paper-ink);
   border-radius: 6px;
   padding: 28px 28px 24px;
-  box-shadow: 0 30px 60px -20px rgba(20, 10, 15, 0.45), 0 2px 0 rgba(0, 0, 0, 0.04);
+  box-shadow: 0 30px 60px -20px rgba(10, 18, 35, 0.45), 0 2px 0 rgba(0, 0, 0, 0.04);
   display: flex; flex-direction: column; gap: 20px;
   animation: unfold 0.55s cubic-bezier(.2, .9, .25, 1.15) both;
   transform-origin: 50% 0%;
 }
 .paper::before {
   content: ""; position: absolute; inset: 0 0 auto; height: 50%;
-  border-bottom: 1px dashed rgba(43, 34, 40, 0.12);
+  border-bottom: 1px dashed rgba(24, 34, 58, 0.12);
   pointer-events: none;
 }
 .slip-meta {
@@ -144,11 +144,11 @@ button:focus-visible { outline: 3px solid var(--pink); outline-offset: 3px; }
   font-variant-numeric: tabular-nums;
 }
 .slip-meta .stamp {
-  color: var(--pink-ink); border: 1.5px solid currentColor; border-radius: 4px;
+  color: var(--blue-ink); border: 1.5px solid currentColor; border-radius: 4px;
   padding: 3px 6px; letter-spacing: 0.06em; transform: rotate(-4deg); text-transform: none;
 }
-:root[data-theme="dark"] .slip-meta .stamp { color: #a8445e; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .slip-meta .stamp { color: #a8445e; } }
+:root[data-theme="dark"] .slip-meta .stamp { color: #2559b0; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .slip-meta .stamp { color: #2559b0; } }
 #slip-text {
   margin: 0;
   font-size: clamp(1.25rem, 5.2vw, 1.5rem);
@@ -159,10 +159,28 @@ button:focus-visible { outline: 3px solid var(--pink); outline-offset: 3px; }
 .slip-actions button {
   font: 700 0.9rem/1 var(--font-display);
   border-radius: 999px; padding: 12px 18px; cursor: pointer;
-  border: 1.5px solid #a8445e; background: #a8445e; color: #fff;
+  border: 1.5px solid #2559b0; background: #2559b0; color: #fff;
 }
-.slip-actions button.ghost { background: transparent; color: #a8445e; }
+.slip-actions button.ghost { background: transparent; color: #2559b0; }
 
+/* Loading splash: the machine's turning knob does quarter turns until the stage is ready */
+#splash {
+  position: absolute; inset: 0; z-index: 10;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+  background: radial-gradient(120% 80% at 50% 40%, var(--bg) 0%, var(--bg) 45%, var(--bg-deep) 100%);
+  transition: opacity 0.45s ease, visibility 0.45s;
+}
+#splash.done { opacity: 0; visibility: hidden; }
+#splash svg { width: 132px; height: 132px; filter: drop-shadow(0 14px 22px rgba(24, 34, 58, 0.22)); }
+#splash .grip { transform-origin: 60px 60px; animation: turn 2.4s cubic-bezier(.55, 0, .3, 1.25) infinite; }
+#splash .name { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+#splash .name b { font-size: 1.6rem; font-weight: 900; letter-spacing: 0.01em; }
+#splash .name span { font-size: 0.78rem; color: var(--ink-soft); letter-spacing: 0.14em; }
+@keyframes turn {
+  0% { transform: rotate(0deg); } 20%, 25% { transform: rotate(90deg); }
+  45%, 50% { transform: rotate(180deg); } 70%, 75% { transform: rotate(270deg); } 95%, 100% { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) { #splash .grip { animation: none; } }
 @keyframes fade { from { opacity: 0; } }
 @keyframes unfold { from { opacity: 0; transform: perspective(700px) rotateX(-70deg) translateY(-20px); } }
 @media (prefers-reduced-motion: reduce) {
@@ -176,7 +194,21 @@ button:focus-visible { outline: 3px solid var(--pink); outline-offset: 3px; }
 </head>
 <body>
 <main class="app">
-  <div id="stage" aria-label="A white Japanese gachapon machine full of pink capsules"></div>
+  <div id="splash" role="status" aria-label="Loading Gotcha">
+    <svg viewBox="0 0 120 120" aria-hidden="true">
+      <circle cx="60" cy="60" r="54" fill="#ffffff"/>
+      <circle cx="60" cy="60" r="54" fill="none" stroke="#2f6fd0" stroke-width="7"/>
+      <circle cx="60" cy="60" r="40" fill="#eef2f8"/>
+      <g class="grip">
+        <rect x="16" y="49" width="88" height="22" rx="11" fill="#ffffff" stroke="#c6d3e5" stroke-width="2"/>
+        <path d="M95 60 l-7 -6 v12 z" fill="#2f6fd0"/>
+        <circle cx="60" cy="60" r="10" fill="#2f6fd0"/>
+        <circle cx="57" cy="57" r="3" fill="#ffffff" opacity="0.55"/>
+      </g>
+    </svg>
+    <div class="name"><b>Gotcha</b><span>ガチャガチャ</span></div>
+  </div>
+  <div id="stage" aria-label="A white Japanese gachapon machine full of blue and white capsules"></div>
 
   <header class="bar">
     <div class="brand">
@@ -208,9 +240,11 @@ button:focus-visible { outline: 3px solid var(--pink); outline-offset: 3px; }
   </div>
 </main>
 
+<script>setTimeout(() => document.getElementById("splash").classList.add("done"), 8000);</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-(() => {
+// Paint the loading splash first, then build the 3D scene.
+requestAnimationFrame(() => setTimeout(() => {
 "use strict";
 
 /* ---------- Messages & shuffle deck ---------- */
@@ -327,7 +361,7 @@ const homeCam = { pos: new THREE.Vector3(), target: camTarget.clone() };
   const c = document.createElement("canvas"); c.width = 512; c.height = 256;
   const g = c.getContext("2d");
   const grd = g.createLinearGradient(0, 0, 0, 256);
-  grd.addColorStop(0, "#ffffff"); grd.addColorStop(0.5, "#f1e6ea"); grd.addColorStop(1, "#b9a9b0");
+  grd.addColorStop(0, "#ffffff"); grd.addColorStop(0.5, "#e6ecf4"); grd.addColorStop(1, "#a9b4c4");
   g.fillStyle = grd; g.fillRect(0, 0, 512, 256);
   g.fillStyle = "#ffffff";
   g.fillRect(60, 30, 120, 50); g.fillRect(320, 40, 140, 40); g.fillRect(200, 10, 90, 25);
@@ -339,7 +373,7 @@ const homeCam = { pos: new THREE.Vector3(), target: camTarget.clone() };
   tex.dispose(); pm.dispose();
 })();
 
-scene.add(new THREE.HemisphereLight(0xffffff, 0xd9c2ca, 0.45));
+scene.add(new THREE.HemisphereLight(0xffffff, 0xc6d3e5, 0.45));
 const sun = new THREE.DirectionalLight(0xffffff, 1.25);
 sun.position.set(2.2, 9, 5);
 sun.castShadow = true;
@@ -348,7 +382,7 @@ Object.assign(sun.shadow.camera, { left: -4, right: 4, top: 6, bottom: -3, near:
 sun.shadow.radius = 4;
 sun.shadow.bias = -0.0008;
 scene.add(sun);
-const fill = new THREE.DirectionalLight(0xffe9ef, 0.35);
+const fill = new THREE.DirectionalLight(0xe9f0ff, 0.35);
 fill.position.set(-4, 3, 3);
 scene.add(fill);
 
@@ -395,8 +429,8 @@ const ease = {
 const W = 2.4, D = 2.2, BODY_H = 2.3, GLASS_H = 1.6, CAP_H = 0.45;
 const FRONT = D / 2;
 
-const whiteMat = new THREE.MeshPhysicalMaterial({ color: 0xf8f6f7, roughness: 0.36, clearcoat: 0.6, clearcoatRoughness: 0.22 });
-const trimMat = new THREE.MeshPhysicalMaterial({ color: 0xebe5e8, roughness: 0.45, clearcoat: 0.3 });
+const whiteMat = new THREE.MeshPhysicalMaterial({ color: 0xf8f9fb, roughness: 0.36, clearcoat: 0.6, clearcoatRoughness: 0.22 });
+const trimMat = new THREE.MeshPhysicalMaterial({ color: 0xe4e9f0, roughness: 0.45, clearcoat: 0.3 });
 const glassMat = new THREE.MeshPhysicalMaterial({
   color: 0xffffff, roughness: 0.04, metalness: 0, transparent: true, opacity: 0.13,
   clearcoat: 1, depthWrite: false, side: THREE.DoubleSide, envMapIntensity: 1.4
@@ -463,7 +497,7 @@ function paintLabels() {
     const g = topLabel.canvas.getContext("2d"), w = 1024, h = 150;
     g.clearRect(0, 0, w, h);
     roundRect(g, 4, 6, w - 8, h - 12, 40);
-    const grd = g.createLinearGradient(0, 0, 0, h); grd.addColorStop(0, "#f29bb2"); grd.addColorStop(1, "#e47f99");
+    const grd = g.createLinearGradient(0, 0, 0, h); grd.addColorStop(0, "#3a7bda"); grd.addColorStop(1, "#2559b0");
     g.fillStyle = grd; g.fill();
     g.fillStyle = "#ffffff"; g.textBaseline = "middle";
     g.font = '900 78px "Zen Maru Gothic", sans-serif'; g.textAlign = "left";
@@ -478,29 +512,29 @@ function paintLabels() {
     g.clearRect(0, 0, w, h);
     const ky = toCanvasY(KNOB_Y);
     // knob well
-    g.fillStyle = "rgba(233,135,159,0.16)";
+    g.fillStyle = "rgba(47,111,208,0.14)";
     g.beginPath(); g.arc(w / 2, ky, 300, 0, Math.PI * 2); g.fill();
     // price, left
-    g.fillStyle = "#a8445e"; g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillStyle = "#2559b0"; g.textAlign = "center"; g.textBaseline = "middle";
     g.font = '900 58px "Zen Maru Gothic", sans-serif'; g.fillText("1回", 112, ky - 60);
     g.font = '900 62px "Zen Maru Gothic", sans-serif'; g.fillText("¥200", 112, ky + 14);
-    g.font = '700 26px "Zen Maru Gothic", sans-serif'; g.fillStyle = "#8b7882"; g.fillText("ONE TURN", 112, ky + 70);
+    g.font = '700 26px "Zen Maru Gothic", sans-serif'; g.fillStyle = "#6e7c91"; g.fillText("ONE TURN", 112, ky + 70);
     // turn instruction, right, with a curved arrow
-    g.fillStyle = "#a8445e";
+    g.fillStyle = "#2559b0";
     g.font = '900 54px "Zen Maru Gothic", sans-serif'; g.fillText("まわす", 912, ky - 40);
-    g.font = '700 26px "Zen Maru Gothic", sans-serif'; g.fillStyle = "#8b7882"; g.fillText("TURN", 912, ky + 8);
-    g.strokeStyle = "#e9879f"; g.lineWidth = 12; g.lineCap = "round";
+    g.font = '700 26px "Zen Maru Gothic", sans-serif'; g.fillStyle = "#6e7c91"; g.fillText("TURN", 912, ky + 8);
+    g.strokeStyle = "#2f6fd0"; g.lineWidth = 12; g.lineCap = "round";
     g.beginPath(); g.arc(w / 2, ky, 330, -0.55, 0.45); g.stroke();
     const ax = w / 2 + 330 * Math.cos(0.45), ay = ky + 330 * Math.sin(0.45);
-    g.fillStyle = "#e9879f"; g.beginPath();
+    g.fillStyle = "#2f6fd0"; g.beginPath();
     g.moveTo(ax - 34, ay - 6); g.lineTo(ax + 20, ay - 22); g.lineTo(ax + 6, ay + 34); g.closePath(); g.fill();
     // exit opening (the dark mouth the capsule rolls out of)
     const ex = toCanvasX(-EXIT_W / 2), ey = toCanvasY(EXIT_Y + EXIT_H / 2);
     const ew = EXIT_W / 2.1 * 1024, eh = EXIT_H / FRONT_LABEL_H * 1000;
     roundRect(g, ex, ey, ew, eh, 46);
-    const dg = g.createLinearGradient(0, ey, 0, ey + eh); dg.addColorStop(0, "#120c0f"); dg.addColorStop(1, "#3b2d34");
+    const dg = g.createLinearGradient(0, ey, 0, ey + eh); dg.addColorStop(0, "#0d1220"); dg.addColorStop(1, "#2a3346");
     g.fillStyle = dg; g.fill();
-    g.fillStyle = "#8b7882"; g.font = '700 24px "Zen Maru Gothic", sans-serif';
+    g.fillStyle = "#6e7c91"; g.font = '700 24px "Zen Maru Gothic", sans-serif';
     g.fillText("とりだしぐち  ·  TAKE OUT", w / 2, ey - 26);
     frontLabel.tex.needsUpdate = true;
   }
@@ -519,7 +553,7 @@ function paintLabels() {
 const flapPivot = new THREE.Group();
 flapPivot.position.set(0, EXIT_Y + EXIT_H / 2 - 0.02, FRONT + 0.06);
 const flap = new THREE.Mesh(new THREE.PlaneGeometry(EXIT_W - 0.04, EXIT_H - 0.04),
-  new THREE.MeshPhysicalMaterial({ color: 0xd8c4cc, transparent: true, opacity: 0.38, roughness: 0.15, clearcoat: 1, depthWrite: false, side: THREE.DoubleSide }));
+  new THREE.MeshPhysicalMaterial({ color: 0xc4d0e0, transparent: true, opacity: 0.38, roughness: 0.15, clearcoat: 1, depthWrite: false, side: THREE.DoubleSide }));
 flap.position.y = -(EXIT_H - 0.04) / 2;
 flap.renderOrder = 11;
 flapPivot.add(flap);
@@ -533,11 +567,11 @@ knob.position.set(0, KNOB_Y, FRONT);
   disk.rotation.x = Math.PI / 2; disk.position.z = 0.07; disk.castShadow = true;
   const ring = new THREE.Mesh(new THREE.TorusGeometry(0.56, 0.035, 12, 64), trimMat);
   ring.position.z = 0.14;
-  const gripMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.3, clearcoat: 0.8, emissive: 0xe9879f, emissiveIntensity: 0 });
+  const gripMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.3, clearcoat: 0.8, emissive: 0x2f6fd0, emissiveIntensity: 0 });
   const grip = new THREE.Mesh(roundedBox(1.02, 0.24, 0.24, 0.1), gripMat);
   grip.position.z = 0.24; grip.castShadow = true;
   const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.06, 32),
-    new THREE.MeshPhysicalMaterial({ color: 0xe9879f, roughness: 0.35, clearcoat: 0.8 }));
+    new THREE.MeshPhysicalMaterial({ color: 0x2f6fd0, roughness: 0.35, clearcoat: 0.8 }));
   hub.rotation.x = Math.PI / 2; hub.position.z = 0.37;
   knob.add(disk, ring, grip, hub);
   knob.userData.grip = gripMat;
@@ -547,16 +581,16 @@ stage.add(knob);
 
 /* ---------- Capsules ---------- */
 const R = 0.29;
-const CAPSULE_COLORS = [0xf2a2b6, 0xf7bccb, 0xec8ea6, 0xf5c3cd, 0xf0afc3, 0xe98aa3];
+const CAPSULE_COLORS = [0x2f6fd0, 0x5c94e3, 0x1c4a94, 0x9dc0f0, 0xf2f5fa, 0x3f82e0];
 const geoTop = new THREE.SphereGeometry(R, 40, 20, 0, Math.PI * 2, 0, Math.PI / 2);
 const geoBottom = new THREE.SphereGeometry(R, 40, 20, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2);
 const geoBand = new THREE.CylinderGeometry(R * 1.02, R * 1.02, R * 0.16, 40, 1, true);
 const geoPaper = new THREE.CylinderGeometry(R * 0.28, R * 0.28, R * 1.05, 20);
 const clearMat = new THREE.MeshPhysicalMaterial({
-  color: 0xfff4f7, transparent: true, opacity: 0.5, roughness: 0.06, clearcoat: 1, depthWrite: false, envMapIntensity: 1.5
+  color: 0xf4f8ff, transparent: true, opacity: 0.5, roughness: 0.06, clearcoat: 1, depthWrite: false, envMapIntensity: 1.5
 });
 const paperMat = new THREE.MeshStandardMaterial({ color: 0xfff6ea, roughness: 0.85 });
-const tieMat = new THREE.MeshPhysicalMaterial({ color: 0xc9506f, roughness: 0.4, clearcoat: 0.5 });
+const tieMat = new THREE.MeshPhysicalMaterial({ color: 0x1c4a94, roughness: 0.4, clearcoat: 0.5 });
 const geoTie = new THREE.TorusGeometry(R * 0.3, R * 0.05, 8, 24);
 const colorMats = new Map();
 function colorMat(c) {
@@ -863,7 +897,12 @@ const fontReady = document.fonts && document.fonts.load
   : Promise.resolve();
 Promise.race([fontReady, new Promise((r) => setTimeout(r, 2500))]).then(paintLabels, paintLabels);
 requestAnimationFrame(frame);
-})();
+// Let the knob make at least one full turn, then reveal the machine once it has rendered.
+Promise.all([
+  Promise.race([fontReady, new Promise((r) => setTimeout(r, 2500))]),
+  new Promise((r) => setTimeout(r, reduceMotion ? 500 : 2400))
+]).then(() => requestAnimationFrame(() => document.getElementById("splash").classList.add("done")));
+}, 0));
 </script>
 </body>
 </html>

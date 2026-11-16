@@ -12,7 +12,7 @@ cd web && python3 -m http.server 8000
 
 ## iOS — `ios/`
 
-SwiftUI + SceneKit, iOS 16+. The Xcode project is generated from `project.yml` with [XcodeGen](https://github.com/yonaskolb/XcodeGen):
+SwiftUI + SceneKit, iPhone, iOS 16+. The Xcode project is generated from `project.yml` with [XcodeGen](https://github.com/yonaskolb/XcodeGen):
 
 ```sh
 brew install xcodegen

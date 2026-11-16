@@ -3,3 +3,4 @@ ios/build/
 DerivedData/
 xcuserdata/
 .DS_Store
+ios/Gotcha/Info.plist

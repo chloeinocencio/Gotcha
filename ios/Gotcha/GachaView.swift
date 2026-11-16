@@ -36,7 +36,7 @@ struct GachaView: UIViewRepresentable {
         view.addGestureRecognizer(tap)
         view.addGestureRecognizer(pan)
         view.isAccessibilityElement = true
-        view.accessibilityLabel = "A white Japanese gachapon machine full of pink capsules"
+        view.accessibilityLabel = "A white Japanese gachapon machine full of blue and white capsules"
         return view
     }
 

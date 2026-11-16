@@ -11,12 +11,13 @@ extension UIColor {
 }
 
 enum Palette {
-    static let shell = UIColor(hex: 0xF8F6F7)
-    static let trim = UIColor(hex: 0xEBE5E8)
-    static let pink = UIColor(hex: 0xE9879F)
-    static let pinkInk = UIColor(hex: 0xA8445E)
-    static let soft = UIColor(hex: 0x8B7882)
-    static let capsules: [UIColor] = [0xF2A2B6, 0xF7BCCB, 0xEC8EA6, 0xF5C3CD, 0xF0AFC3, 0xE98AA3].map { UIColor(hex: $0) }
+    // Classic white-and-blue gachapon
+    static let shell = UIColor(hex: 0xF8F9FB)
+    static let trim = UIColor(hex: 0xE4E9F0)
+    static let blue = UIColor(hex: 0x2F6FD0)
+    static let blueInk = UIColor(hex: 0x1C4A94)
+    static let soft = UIColor(hex: 0x6E7C91)
+    static let capsules: [UIColor] = [0x2F6FD0, 0x5C94E3, 0x1C4A94, 0x9DC0F0, 0xF2F5FA, 0x3F82E0].map { UIColor(hex: $0) }
 }
 
 enum Ease {

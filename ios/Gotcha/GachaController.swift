@@ -45,10 +45,10 @@ final class GachaController: ObservableObject {
     // Shared capsule geometry
     private lazy var geoTop = Geo.hemisphere(radius: R, upper: true)
     private lazy var geoBottom = Geo.hemisphere(radius: R, upper: false)
-    private lazy var clearMat = Mat.clear(UIColor(hex: 0xFFF4F7), opacity: 0.5)
+    private lazy var clearMat = Mat.clear(UIColor(hex: 0xF4F8FF), opacity: 0.5)
     private var colorMats: [UIColor: SCNMaterial] = [:]
     private let paperMat = Mat.pbr(UIColor(hex: 0xFFF6EA), roughness: 0.85)
-    private let tieMat = Mat.pbr(UIColor(hex: 0xC9506F), roughness: 0.4, clearCoat: 0.5)
+    private let tieMat = Mat.pbr(UIColor(hex: 0x1C4A94), roughness: 0.4, clearCoat: 0.5)
 
     init() {
         remaining = deck.remaining
@@ -283,6 +283,7 @@ final class GachaController: ObservableObject {
 
     private func startGlow() {
         let grip = gripMaterial
+        if reduceMotion { grip.emission.intensity = 0.12; return }
         let glow = SCNAction.customAction(duration: 2 * .pi / 3) { @Sendable _, elapsed in
             grip.emission.intensity = 0.1 + 0.1 * sin(elapsed * 3)
         }
@@ -314,7 +315,7 @@ final class GachaController: ObservableObject {
         let ambient = SCNLight()
         ambient.type = .ambient
         ambient.intensity = 180
-        ambient.color = UIColor(hex: 0xF5E8EC)
+        ambient.color = UIColor(hex: 0xE8EEF7)
         let ambientNode = SCNNode(); ambientNode.light = ambient
         scene.rootNode.addChildNode(ambientNode)
 
@@ -345,7 +346,7 @@ final class GachaController: ObservableObject {
 
     private func environmentImage() -> UIImage {
         renderLabel(size: CGSize(width: 512, height: 256)) { g, size in
-            let colors = [UIColor.white.cgColor, UIColor(hex: 0xF1E6EA).cgColor, UIColor(hex: 0xB9A9B0).cgColor] as CFArray
+            let colors = [UIColor.white.cgColor, UIColor(hex: 0xE6ECF4).cgColor, UIColor(hex: 0xA9B4C4).cgColor] as CFArray
             if let grad = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 0.5, 1]) {
                 g.drawLinearGradient(grad, start: .zero, end: CGPoint(x: 0, y: size.height), options: [])
             }
@@ -397,7 +398,7 @@ final class GachaController: ObservableObject {
             let rect = CGRect(x: 4, y: 6, width: size.width - 8, height: size.height - 12)
             let path = UIBezierPath(roundedRect: rect, cornerRadius: 40)
             g.saveGState(); g.addPath(path.cgPath); g.clip()
-            let colors = [UIColor(hex: 0xF29BB2).cgColor, UIColor(hex: 0xE47F99).cgColor] as CFArray
+            let colors = [UIColor(hex: 0x3A7BDA).cgColor, UIColor(hex: 0x2559B0).cgColor] as CFArray
             if let grad = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 1]) {
                 g.drawLinearGradient(grad, start: .zero, end: CGPoint(x: 0, y: size.height), options: [])
             }
@@ -415,18 +416,18 @@ final class GachaController: ObservableObject {
         let kY = knobY, eY = exitY, eW = exitW, eH = exitH
         let frontImg = renderLabel(size: CGSize(width: 1024, height: 1000)) { g, size in
             let ky = toY(kY), cx = size.width / 2
-            g.setFillColor(Palette.pink.withAlphaComponent(0.16).cgColor)
+            g.setFillColor(Palette.blue.withAlphaComponent(0.16).cgColor)
             g.fillEllipse(in: CGRect(x: cx - 300, y: ky - 300, width: 600, height: 600))
-            drawText("1回", font: roundedFont(58, .black), color: Palette.pinkInk, center: CGPoint(x: 112, y: ky - 60))
-            drawText("¥200", font: roundedFont(62, .black), color: Palette.pinkInk, center: CGPoint(x: 112, y: ky + 14))
+            drawText("1回", font: roundedFont(58, .black), color: Palette.blueInk, center: CGPoint(x: 112, y: ky - 60))
+            drawText("¥200", font: roundedFont(62, .black), color: Palette.blueInk, center: CGPoint(x: 112, y: ky + 14))
             drawText("ONE TURN", font: roundedFont(26, .bold), color: Palette.soft, center: CGPoint(x: 112, y: ky + 70))
-            drawText("まわす", font: roundedFont(54, .black), color: Palette.pinkInk, center: CGPoint(x: 912, y: ky - 40))
+            drawText("まわす", font: roundedFont(54, .black), color: Palette.blueInk, center: CGPoint(x: 912, y: ky - 40))
             drawText("TURN", font: roundedFont(26, .bold), color: Palette.soft, center: CGPoint(x: 912, y: ky + 8))
-            g.setStrokeColor(Palette.pink.cgColor); g.setLineWidth(12); g.setLineCap(.round)
+            g.setStrokeColor(Palette.blue.cgColor); g.setLineWidth(12); g.setLineCap(.round)
             g.addArc(center: CGPoint(x: cx, y: ky), radius: 330, startAngle: -0.55, endAngle: 0.45, clockwise: false)
             g.strokePath()
             let ax = cx + 330 * cos(0.45), ay = ky + 330 * sin(0.45)
-            g.setFillColor(Palette.pink.cgColor)
+            g.setFillColor(Palette.blue.cgColor)
             g.move(to: CGPoint(x: ax - 34, y: ay - 6)); g.addLine(to: CGPoint(x: ax + 20, y: ay - 22)); g.addLine(to: CGPoint(x: ax + 6, y: ay + 34))
             g.closePath(); g.fillPath()
             // exit mouth
@@ -434,7 +435,7 @@ final class GachaController: ObservableObject {
             let ew = CGFloat(eW / 2.1 * 1024), eh = CGFloat(eH / labelH * 1000)
             let mouth = UIBezierPath(roundedRect: CGRect(x: ex, y: ey, width: ew, height: eh), cornerRadius: 46)
             g.saveGState(); g.addPath(mouth.cgPath); g.clip()
-            let colors = [UIColor(hex: 0x120C0F).cgColor, UIColor(hex: 0x3B2D34).cgColor] as CFArray
+            let colors = [UIColor(hex: 0x0D1220).cgColor, UIColor(hex: 0x2A3346).cgColor] as CFArray
             if let grad = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 1]) {
                 g.drawLinearGradient(grad, start: CGPoint(x: 0, y: ey), end: CGPoint(x: 0, y: ey + eh), options: [])
             }
@@ -454,7 +455,7 @@ final class GachaController: ObservableObject {
         // Flap
         flapPivot.position = SCNVector3(0, exitY + exitH / 2 - 0.02, front + 0.08)
         stage.addChildNode(flapPivot)
-        let flapMat = Mat.clear(UIColor(hex: 0xD8C4CC), opacity: 0.38)
+        let flapMat = Mat.clear(UIColor(hex: 0xC4D0E0), opacity: 0.38)
         let flap = add(SCNPlane(width: cg(exitW - 0.04), height: cg(exitH - 0.04)), flapMat,
                        at: SCNVector3(0, -(exitH - 0.04) / 2, 0), shadow: false, to: flapPivot)
         flap.renderingOrder = 11
@@ -467,10 +468,10 @@ final class GachaController: ObservableObject {
         disk.eulerAngles.x = .pi / 2
         let ring = add(SCNTorus(ringRadius: 0.56, pipeRadius: 0.035), trim, at: SCNVector3(0, 0, 0.14), to: knob)
         ring.eulerAngles.x = .pi / 2
-        gripMaterial.emission.contents = Palette.pink
+        gripMaterial.emission.contents = Palette.blue
         gripMaterial.emission.intensity = 0
         _ = add(SCNBox(width: 1.02, height: 0.24, length: 0.24, chamferRadius: 0.1), gripMaterial, at: SCNVector3(0, 0, 0.24), to: knob)
-        let hub = add(SCNCylinder(radius: 0.1, height: 0.06), Mat.pbr(Palette.pink, roughness: 0.35, clearCoat: 0.8),
+        let hub = add(SCNCylinder(radius: 0.1, height: 0.06), Mat.pbr(Palette.blue, roughness: 0.35, clearCoat: 0.8),
                       at: SCNVector3(0, 0, 0.37), to: knob)
         hub.eulerAngles.x = .pi / 2
         knob.enumerateHierarchy { n, _ in n.name = n.name ?? "knob" }
@@ -545,7 +546,7 @@ final class GachaController: ObservableObject {
             if best == nil || y < best!.y { best = SCNVector3(x, y, z) }
         }
         guard let pos = best, pos.y <= y1 else { return false }
-        let color = Palette.capsules.randomElement() ?? Palette.pink
+        let color = Palette.capsules.randomElement() ?? Palette.blue
         let c = makeCapsule(color: color, interactive: false)
         c.eulerAngles = SCNVector3(Float.random(in: 0...(2 * .pi)), Float.random(in: 0...(2 * .pi)), Float.random(in: 0...(2 * .pi)))
         baseY[ObjectIdentifier(c)] = pos.y

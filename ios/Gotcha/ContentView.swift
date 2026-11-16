@@ -4,16 +4,16 @@ extension Color {
     static func dynamic(light: UInt32, dark: UInt32) -> Color {
         Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(hex: dark) : UIColor(hex: light) })
     }
-    static let gBg = dynamic(light: 0xEFDDE3, dark: 0x1E171B)
-    static let gBgDeep = dynamic(light: 0xD9BFC9, dark: 0x120D10)
-    static let gInk = dynamic(light: 0x2B2228, dark: 0xF4ECEF)
-    static let gInkSoft = dynamic(light: 0x77656F, dark: 0xB9A8B1)
-    static let gAction = dynamic(light: 0xA8445E, dark: 0xF6BCCB)
-    static let gActionText = dynamic(light: 0xFFFFFF, dark: 0x2B2228)
-    static let gPaper = Color(UIColor(hex: 0xFFFDF9))
-    static let gPaperInk = Color(UIColor(hex: 0x2B2228))
-    static let gPaperSoft = Color(UIColor(hex: 0x8B7882))
-    static let gStamp = Color(UIColor(hex: 0xA8445E))
+    static let gBg = dynamic(light: 0xE6EDF6, dark: 0x111722)
+    static let gBgDeep = dynamic(light: 0xC6D3E5, dark: 0x090D14)
+    static let gInk = dynamic(light: 0x18223A, dark: 0xEEF2F8)
+    static let gInkSoft = dynamic(light: 0x5D6B82, dark: 0xA7B3C4)
+    static let gAction = dynamic(light: 0x2559B0, dark: 0x9CC0F2)
+    static let gActionText = dynamic(light: 0xFFFFFF, dark: 0x111722)
+    static let gPaper = Color(UIColor(hex: 0xFFFFFF))
+    static let gPaperInk = Color(UIColor(hex: 0x18223A))
+    static let gPaperSoft = Color(UIColor(hex: 0x76839A))
+    static let gStamp = Color(UIColor(hex: 0x2559B0))
 }
 
 extension Font {
@@ -161,7 +161,7 @@ struct SlipView: View {
                     var y: CGFloat = 31
                     while y < size.height {
                         ctx.fill(Path(CGRect(x: 0, y: y, width: size.width, height: 1)),
-                                 with: .color(Color(UIColor(hex: 0xE9879F)).opacity(0.16)))
+                                 with: .color(Color(UIColor(hex: 0x6FA3EC)).opacity(0.18)))
                         y += 32
                     }
                 }
