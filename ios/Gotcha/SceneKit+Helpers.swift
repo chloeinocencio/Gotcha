@@ -12,8 +12,10 @@ extension UIColor {
 
 enum Palette {
     // Classic white-and-blue gachapon
-    static let shell = UIColor(hex: 0xF8F9FB)
-    static let trim = UIColor(hex: 0xE4E9F0)
+    static let shell = UIColor(hex: 0xECE6D8) // the cream plastic of the real machines
+    static let trim = UIColor(hex: 0xDCD4C3)
+    static let ringBlue = UIColor(hex: 0x2A4FA8)
+    static let yellow = UIColor(hex: 0xF2C230)
     static let blue = UIColor(hex: 0x2F6FD0)
     static let blueInk = UIColor(hex: 0x1C4A94)
     static let soft = UIColor(hex: 0x6E7C91)
@@ -58,7 +60,7 @@ enum Mat {
     }
 
     static func label(_ image: UIImage) -> SCNMaterial {
-        let m = pbr(.white, roughness: 0.4, clearCoat: 0.4)
+        let m = pbr(.white, roughness: 0.75, clearCoat: 0)
         m.diffuse.contents = image
         m.transparent.contents = image
         m.transparencyMode = .aOne
@@ -129,4 +131,32 @@ func drawText(_ text: String, font: UIFont, color: UIColor, center: CGPoint, ali
     if align == .left { x = center.x }
     if align == .right { x = center.x - sz.width }
     s.draw(at: CGPoint(x: x, y: center.y - sz.height / 2))
+}
+
+func fillRounded(_ g: CGContext, _ rect: CGRect, _ radius: CGFloat, _ color: UIColor) {
+    g.setFillColor(color.cgColor)
+    g.addPath(UIBezierPath(roundedRect: rect, cornerRadius: radius).cgPath)
+    g.fillPath()
+}
+
+/// A filled triangle pointing along `angle` (radians, label coordinates), tip at (x + size, y) before rotation.
+func arrowHead(_ g: CGContext, _ x: CGFloat, _ y: CGFloat, _ angle: CGFloat, _ size: CGFloat, _ color: UIColor) {
+    g.saveGState()
+    g.translateBy(x: x, y: y)
+    g.rotate(by: angle)
+    g.setFillColor(color.cgColor)
+    g.move(to: CGPoint(x: size, y: 0))
+    g.addLine(to: CGPoint(x: -size * 0.7, y: -size * 0.8))
+    g.addLine(to: CGPoint(x: -size * 0.7, y: size * 0.8))
+    g.closePath()
+    g.fillPath()
+    g.restoreGState()
+}
+
+/// Text with a thick outline, like the lettering on printed toy cards.
+func drawOutlinedText(_ text: String, font: UIFont, fill: UIColor, stroke: UIColor, strokePercent: CGFloat, center: CGPoint) {
+    let outline = NSAttributedString(string: text, attributes: [.font: font, .strokeColor: stroke, .strokeWidth: strokePercent])
+    let sz = outline.size()
+    outline.draw(at: CGPoint(x: center.x - sz.width / 2, y: center.y - sz.height / 2))
+    drawText(text, font: font, color: fill, center: center)
 }

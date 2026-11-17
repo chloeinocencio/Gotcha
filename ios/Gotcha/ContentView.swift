@@ -65,7 +65,7 @@ struct ContentView: View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Gotcha").font(.rounded(26, .black))
-                Text("ガチャガチャ · daily affirmations")
+                Text("daily affirmations")
                     .font(.rounded(12, .medium))
                     .foregroundStyle(Color.gInkSoft)
             }
@@ -90,9 +90,6 @@ struct ContentView: View {
         Button { gacha.primaryAction() } label: {
             HStack(spacing: 6) {
                 Text(gacha.actionTitle).font(.rounded(17, .bold))
-                if !gacha.actionJapanese.isEmpty {
-                    Text(gacha.actionJapanese).font(.rounded(14, .medium)).opacity(0.8)
-                }
             }
             .foregroundStyle(Color.gActionText)
             .frame(maxWidth: 340)
@@ -122,7 +119,7 @@ struct SlipView: View {
                     .monospacedDigit()
                     .foregroundStyle(Color.gPaperSoft)
                 Spacer()
-                Text("今日のことば")
+                Text("Today")
                     .font(.rounded(12, .medium))
                     .foregroundStyle(Color.gStamp)
                     .padding(.horizontal, 6).padding(.vertical, 3)

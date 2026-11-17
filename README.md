@@ -1,6 +1,6 @@
-# Gotcha ガチャ
+# Gotcha
 
-A 3D Japanese gachapon machine full of affirmations. Turn the handle, a capsule rolls out, tap it to open your message. Messages come from a shuffle deck, so you see all 9 before any repeats.
+A 3D capsule-toy machine full of affirmations. Turn the handle, a capsule rolls out, tap it to open your message. Messages come from a shuffle deck, so you see all 9 before any repeats.
 
 ## Web — `web/`
 
