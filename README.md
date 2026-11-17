@@ -4,7 +4,7 @@ A 3D capsule-toy machine full of affirmations. Turn the handle, a capsule rolls 
 
 ## Web — `web/`
 
-Three.js in a single file. Open `web/index.html` in a browser, or serve the folder:
+Three.js. `index.html` builds the scene; `textures.js` paints every printed and surface texture (display cards, the machine's face, floor, wall, reflections). Serve the folder:
 
 ```sh
 cd web && python3 -m http.server 8000
@@ -21,3 +21,12 @@ open Gotcha.xcodeproj
 ```
 
 Pick your team under Signing & Capabilities, then run on a device or simulator. Turning the handle uses haptics instead of sound.
+
+## Textures
+
+The iOS app uses PNGs baked from `web/textures.js`, so both versions show the same artwork. After changing `textures.js`, re-bake:
+
+```sh
+pip install playwright && playwright install chromium
+python3 tools/bake-textures.py
+```

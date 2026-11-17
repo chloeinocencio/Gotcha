@@ -102,8 +102,45 @@ enum Geo {
         return geo
     }
 
+    /// Surface of revolution around the y axis from a (radius, height) profile, listed from the rim inward.
+    static func lathe(_ profile: [(Float, Float)], segments: Int = 96) -> SCNGeometry {
+        var verts: [SCNVector3] = []
+        var norms: [SCNVector3] = []
+        var uvs: [CGPoint] = []
+        var idx: [UInt32] = []
+        let n = profile.count
+        for i in 0..<n {
+            // profile normal: the tangent turned a quarter turn, pointing outward and up
+            let a = profile[max(0, i - 1)], b = profile[min(n - 1, i + 1)]
+            var nr = b.1 - a.1, nh = -(b.0 - a.0)
+            let len = max(0.0001, sqrt(nr * nr + nh * nh))
+            nr /= len; nh /= len
+            let (r, h) = profile[i]
+            for j in 0...segments {
+                let th = Float(j) / Float(segments) * 2 * .pi
+                verts.append(SCNVector3(r * cos(th), h, r * sin(th)))
+                norms.append(SCNVector3(nr * cos(th), nh, nr * sin(th)))
+                uvs.append(CGPoint(x: CGFloat(j) / CGFloat(segments), y: CGFloat(i) / CGFloat(max(1, n - 1))))
+            }
+        }
+        let cols = segments + 1
+        for i in 0..<(n - 1) {
+            for j in 0..<segments {
+                let a = UInt32(i * cols + j), b = UInt32((i + 1) * cols + j)
+                let c = a + 1, d = b + 1
+                idx += [a, b, c, c, b, d]
+            }
+        }
+        return SCNGeometry(sources: [SCNGeometrySource(vertices: verts),
+                                     SCNGeometrySource(normals: norms),
+                                     SCNGeometrySource(textureCoordinates: uvs)],
+                           elements: [SCNGeometryElement(indices: idx, primitiveType: .triangles)])
+    }
+
     static func roundedRectPath(width w: CGFloat, height h: CGFloat, radius r: CGFloat) -> UIBezierPath {
-        UIBezierPath(roundedRect: CGRect(x: -w / 2, y: -h / 2, width: w, height: h), cornerRadius: r)
+        let p = UIBezierPath(roundedRect: CGRect(x: -w / 2, y: -h / 2, width: w, height: h), cornerRadius: r)
+        p.flatness = 0.002
+        return p
     }
 }
 
@@ -133,30 +170,3 @@ func drawText(_ text: String, font: UIFont, color: UIColor, center: CGPoint, ali
     s.draw(at: CGPoint(x: x, y: center.y - sz.height / 2))
 }
 
-func fillRounded(_ g: CGContext, _ rect: CGRect, _ radius: CGFloat, _ color: UIColor) {
-    g.setFillColor(color.cgColor)
-    g.addPath(UIBezierPath(roundedRect: rect, cornerRadius: radius).cgPath)
-    g.fillPath()
-}
-
-/// A filled triangle pointing along `angle` (radians, label coordinates), tip at (x + size, y) before rotation.
-func arrowHead(_ g: CGContext, _ x: CGFloat, _ y: CGFloat, _ angle: CGFloat, _ size: CGFloat, _ color: UIColor) {
-    g.saveGState()
-    g.translateBy(x: x, y: y)
-    g.rotate(by: angle)
-    g.setFillColor(color.cgColor)
-    g.move(to: CGPoint(x: size, y: 0))
-    g.addLine(to: CGPoint(x: -size * 0.7, y: -size * 0.8))
-    g.addLine(to: CGPoint(x: -size * 0.7, y: size * 0.8))
-    g.closePath()
-    g.fillPath()
-    g.restoreGState()
-}
-
-/// Text with a thick outline, like the lettering on printed toy cards.
-func drawOutlinedText(_ text: String, font: UIFont, fill: UIColor, stroke: UIColor, strokePercent: CGFloat, center: CGPoint) {
-    let outline = NSAttributedString(string: text, attributes: [.font: font, .strokeColor: stroke, .strokeWidth: strokePercent])
-    let sz = outline.size()
-    outline.draw(at: CGPoint(x: center.x - sz.width / 2, y: center.y - sz.height / 2))
-    drawText(text, font: font, color: fill, center: center)
-}

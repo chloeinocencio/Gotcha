@@ -52,6 +52,11 @@ body {
 .app { position: relative; height: 100%; }
 #stage { position: absolute; inset: 0; touch-action: none; }
 #stage canvas { display: block; width: 100%; height: 100%; }
+#stage::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(120% 90% at 50% 45%, rgba(0,0,0,0) 50%, rgba(20,16,10,0.3) 100%); }
+/* a whisper of film grain so the render reads as a photo */
+#stage::before { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1; opacity: 0.07; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
 
 .bar {
   position: absolute; inset: 0 0 auto;
@@ -243,6 +248,7 @@ button:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
 
 <script>setTimeout(() => document.getElementById("splash").classList.add("done"), 8000);</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="textures.js"></script>
 <script>
 // Paint the loading splash first, then build the 3D scene.
 requestAnimationFrame(() => setTimeout(() => {
@@ -341,57 +347,72 @@ function sfx(kind) {
 /* ---------- Three.js setup ---------- */
 const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const M = reduceMotion ? 0.35 : 1; // duration multiplier
+const TX = window.GotchaTextures;
+const isDark = () => {
+  const t = document.documentElement.getAttribute("data-theme");
+  return t ? t === "dark" : !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+};
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.98;
+renderer.toneMappingExposure = 0.95;
+renderer.physicallyCorrectLights = false;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.setClearColor(0x000000, 0);
 stageEl.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
-const camTarget = new THREE.Vector3(0, 2.05, 0.9);
+const camTarget = new THREE.Vector3(0, 2.3, 0.9);
 const homeCam = { pos: new THREE.Vector3(), target: camTarget.clone() };
 
-// Soft studio environment for reflections
-(function buildEnv() {
-  const c = document.createElement("canvas"); c.width = 512; c.height = 256;
-  const g = c.getContext("2d");
-  const grd = g.createLinearGradient(0, 0, 0, 256);
-  grd.addColorStop(0, "#ffffff"); grd.addColorStop(0.5, "#e6ecf4"); grd.addColorStop(1, "#a9b4c4");
-  g.fillStyle = grd; g.fillRect(0, 0, 512, 256);
-  g.fillStyle = "#ffffff";
-  g.fillRect(60, 30, 120, 50); g.fillRect(320, 40, 140, 40); g.fillRect(200, 10, 90, 25);
-  const tex = new THREE.CanvasTexture(c);
-  tex.mapping = THREE.EquirectangularReflectionMapping;
-  tex.encoding = THREE.sRGBEncoding;
+/* Painted textures: kept in a list so they can be repainted once the web font arrives. */
+const painted = [];
+function paintedTexture(kind, arg, opts = {}) {
+  const canvas = TX.make(kind, arg);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.encoding = opts.linear ? THREE.LinearEncoding : THREE.sRGBEncoding;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  if (opts.repeat) { tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(opts.repeat[0], opts.repeat[1]); }
+  if (["card", "face", "badge", "flap"].includes(kind)) painted.push({ kind, arg, canvas, tex });
+  return tex;
+}
+function paintLabels() {
+  for (const p of painted) { TX.repaint(p.kind, p.canvas, p.arg); p.tex.needsUpdate = true; }
+}
+
+// Shop-light reflections: rows of ceiling fluorescents and a softbox behind the viewer
+{
+  const envTex = paintedTexture("env");
+  envTex.mapping = THREE.EquirectangularReflectionMapping;
   const pm = new THREE.PMREMGenerator(renderer);
-  scene.environment = pm.fromEquirectangular(tex).texture;
-  tex.dispose(); pm.dispose();
-})();
+  scene.environment = pm.fromEquirectangular(envTex).texture;
+  envTex.dispose(); pm.dispose();
+}
 
-scene.add(new THREE.HemisphereLight(0xffffff, 0xc6d3e5, 0.45));
-const sun = new THREE.DirectionalLight(0xffffff, 1.25);
-sun.position.set(2.2, 9, 5);
+const hemi = new THREE.HemisphereLight(0xffffff, 0x8a8478, 0.3);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfffaf0, 1.0);
+sun.position.set(3.4, 10, 4.6);
 sun.castShadow = true;
-sun.shadow.mapSize.set(1024, 1024);
-Object.assign(sun.shadow.camera, { left: -4, right: 4, top: 6, bottom: -3, near: 1, far: 20 });
-sun.shadow.radius = 4;
-sun.shadow.bias = -0.0008;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -6.5, right: 6.5, top: 7, bottom: -2, near: 1, far: 25 });
+sun.shadow.radius = 5;
+sun.shadow.bias = -0.0006;
+sun.shadow.normalBias = 0.02;
 scene.add(sun);
-const fill = new THREE.DirectionalLight(0xe9f0ff, 0.35);
-fill.position.set(-4, 3, 3);
+const fill = new THREE.DirectionalLight(0xdfe8ff, 0.28);
+fill.position.set(-5, 3, 4);
 scene.add(fill);
+// a soft spot on the hero machine, so it reads brighter than its neighbours
+const spot = new THREE.SpotLight(0xfff8ee, 0.7, 0, 0.3, 1, 1);
+spot.position.set(0, 9, 7);
+scene.add(spot); scene.add(spot.target);
+spot.target.position.set(0, 2.2, 0);
 
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.ShadowMaterial({ opacity: 0.14 }));
-ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true;
-scene.add(ground);
-
-// Everything that turns with a drag lives on this turntable
+// Everything that turns with a drag lives on this turntable (turning the whole set feels like walking around)
 const stage = new THREE.Group();
 scene.add(stage);
 
@@ -414,284 +435,221 @@ function roundedBox(w, h, d, r, seg = 4) {
   geo.translate(0, 0, -(d - 2 * b) / 2);
   return geo;
 }
-function roundRect(g, x, y, w, h, r) {
-  g.beginPath(); g.moveTo(x + r, y);
-  g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
-  g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
-}
 const lerp = (a, b, t) => a + (b - a) * t;
 const ease = {
   inOut: (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2,
   out: (t) => 1 - Math.pow(1 - t, 3),
   back: (t) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); }
 };
+function shadowed(m, cast = true, receive = true) { m.castShadow = cast; m.receiveShadow = receive; return m; }
 
-/* ---------- Machine ---------- */
-// Modelled on the classic capsule-toy machine: a clear display case on top with a printed card inside,
-// and a cream mechanism unit below with a big white dial in a blue ring, a coin slot and a smoked exit flap.
+/* ---------- Room: floor, wall, contact shadows ---------- */
 const W = 2.4, D = 2.2, BODY_H = 2.5, GLASS_H = 1.75, CAP_H = 0.3;
 const FRONT = D / 2;
 const FACE = FRONT + 0.06; // front of the raised face plate on the mechanism unit
+const WALL_Z = -D / 2 - 0.08;
+const PITCH = W + 0.08;   // machines stand in a row, almost touching
 
-const whiteMat = new THREE.MeshPhysicalMaterial({ color: 0xece6d8, roughness: 0.45, clearcoat: 0.35, clearcoatRoughness: 0.35, envMapIntensity: 0.8 });
-const trimMat = new THREE.MeshPhysicalMaterial({ color: 0xdcd4c3, roughness: 0.5, clearcoat: 0.2 });
-const greyMat = new THREE.MeshPhysicalMaterial({ color: 0x8c8f96, roughness: 0.35, metalness: 0.6 });
-const darkMat = new THREE.MeshStandardMaterial({ color: 0x1b1d22, roughness: 0.6 });
+const floorMat = new THREE.MeshStandardMaterial({ map: paintedTexture("floor", null, { repeat: [6, 6] }), roughness: 0.42, metalness: 0, envMapIntensity: 0.4 });
+const floor = shadowed(new THREE.Mesh(new THREE.PlaneGeometry(36, 36), floorMat), false, true);
+floor.rotation.x = -Math.PI / 2; floor.position.z = 8;
+stage.add(floor);
+const wallMat = new THREE.MeshStandardMaterial({ map: paintedTexture("wall", null, { repeat: [5, 2] }), roughness: 0.9, envMapIntensity: 0.3 });
+const wall = shadowed(new THREE.Mesh(new THREE.PlaneGeometry(36, 14), wallMat), false, true);
+wall.position.set(0, 7, WALL_Z);
+stage.add(wall);
+const skirting = shadowed(new THREE.Mesh(new THREE.BoxGeometry(36, 0.16, 0.04), new THREE.MeshStandardMaterial({ color: 0xcfcac0, roughness: 0.6 })), false, true);
+skirting.position.set(0, 0.08, WALL_Z + 0.02);
+stage.add(skirting);
+const aoTex = paintedTexture("ao", null, { linear: true });
+function contactShadow(x, w, d, y, opacity, vertical) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({ color: 0x000000, alphaMap: aoTex, transparent: true, opacity, depthWrite: false }));
+  if (vertical) m.position.set(x, y, WALL_Z + 0.004); else { m.rotation.x = -Math.PI / 2; m.position.set(x, 0.004, y); }
+  m.renderOrder = 1;
+  stage.add(m);
+}
+// alphaMap reads the green channel, so the AO texture is painted as white-on-black alpha
+aoTex.image.getContext("2d").globalCompositeOperation = "source-over";
+{
+  const c = aoTex.image, g = c.getContext("2d"), img = g.getImageData(0, 0, c.width, c.height), d = img.data;
+  for (let i = 0; i < d.length; i += 4) { d[i] = d[i + 1] = d[i + 2] = d[i + 3]; d[i + 3] = 255; }
+  g.putImageData(img, 0, 0); aoTex.needsUpdate = true;
+}
+// dark crevices where the machines stand shoulder to shoulder
+for (const sx of [-1, 1]) for (const k of [0.5, 1.5]) {
+  const gap = shadowed(new THREE.Mesh(new THREE.BoxGeometry(PITCH - W + 0.02, BODY_H + GLASS_H + CAP_H, D - 0.1), new THREE.MeshStandardMaterial({ color: 0x24221f, roughness: 1 })), false, false);
+  gap.position.set(sx * PITCH * k, (BODY_H + GLASS_H + CAP_H) / 2 + 0.05, 0);
+  stage.add(gap);
+}
+for (const x of [-PITCH, 0, PITCH]) {
+  contactShadow(x, W + 0.7, D + 0.7, 0, 0.55, false);
+  contactShadow(x, W + 0.9, BODY_H + GLASS_H + 0.9, (BODY_H + GLASS_H) / 2 + 0.1, 0.35, true);
+}
+
+/* ---------- Materials ---------- */
+const grainTex = paintedTexture("grain", null, { linear: true, repeat: [2, 2] });
+const plastic = (color, extra = {}) => new THREE.MeshPhysicalMaterial(Object.assign({
+  color, roughness: 0.95, roughnessMap: grainTex,
+  clearcoat: 0.3, clearcoatRoughness: 0.35, envMapIntensity: 0.7
+}, extra));
+const whiteMat = plastic(0xebe5d6);
+const trimMat = plastic(0xd9d1bf, { clearcoat: 0.15 });
+const dialMat = plastic(0xfbf9f3, { roughness: 0.75, clearcoat: 0.7, clearcoatRoughness: 0.18 });
+const ringMat = plastic(0x1d42a8, { roughness: 0.85, clearcoat: 0.35, clearcoatRoughness: 0.25, envMapIntensity: 0.25 });
+const chromeMat = new THREE.MeshStandardMaterial({ color: 0xd4d7dc, metalness: 1, roughness: 0.28, envMapIntensity: 1.2 });
+const satinMat = new THREE.MeshStandardMaterial({ color: 0xa9adb4, metalness: 0.9, roughness: 0.45, envMapIntensity: 1.0 });
+const darkMat = new THREE.MeshStandardMaterial({ color: 0x15171b, roughness: 0.55 });
+// Clear plastic: a faint body plus an additive layer that only carries reflections, so the glass glints
+// without fogging what is behind it.
 const glassMat = new THREE.MeshPhysicalMaterial({
-  color: 0xffffff, roughness: 0.04, metalness: 0, transparent: true, opacity: 0.07,
-  clearcoat: 1, depthWrite: false, side: THREE.DoubleSide, envMapIntensity: 0.9
+  color: 0xffffff, roughness: 0.05, transparent: true, opacity: 0.05, depthWrite: false, side: THREE.DoubleSide, envMapIntensity: 0
 });
+const glintMat = new THREE.MeshPhysicalMaterial({
+  color: 0x000000, roughness: 0.04, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.03, envMapIntensity: 0.55,
+  transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.FrontSide
+});
+const labelMat = (tex, extra = {}) => new THREE.MeshStandardMaterial(Object.assign({
+  map: tex, transparent: true, roughness: 0.7, metalness: 0, envMapIntensity: 0.3
+}, extra));
 
-// Mechanism unit
-const body = new THREE.Mesh(roundedBox(W, BODY_H, D, 0.16), whiteMat);
-body.position.y = BODY_H / 2; body.castShadow = true; body.receiveShadow = true;
-stage.add(body);
-const facePlate = new THREE.Mesh(roundedBox(W - 0.14, BODY_H - 0.18, 0.1, 0.05), whiteMat);
-facePlate.position.set(0, BODY_H / 2 + 0.02, FRONT + 0.01); facePlate.castShadow = true;
-stage.add(facePlate);
-const plinth = new THREE.Mesh(roundedBox(W + 0.06, 0.1, D + 0.06, 0.04), trimMat);
-plinth.position.y = 0.05; plinth.receiveShadow = true;
-stage.add(plinth);
-// seam band where the display case sits on the mechanism
-const collar = new THREE.Mesh(roundedBox(W + 0.04, 0.12, D + 0.04, 0.05), trimMat);
-collar.position.y = BODY_H + 0.04; collar.castShadow = true;
-stage.add(collar);
-
-// Display case
+/* ---------- Machine (built once, then copied for the neighbours) ---------- */
 const GLASS_Y0 = BODY_H + 0.1, GLASS_Y1 = GLASS_Y0 + GLASS_H;
-const glass = new THREE.Mesh(roundedBox(W - 0.04, GLASS_H, D - 0.04, 0.16), glassMat);
-glass.position.y = GLASS_Y0 + GLASS_H / 2;
-glass.renderOrder = 10;
-stage.add(glass);
-for (const sx of [-1, 1]) { // back posts only, so the front reads as one clear window
-  const p = new THREE.Mesh(roundedBox(0.12, GLASS_H, 0.12, 0.04, 2), whiteMat);
-  p.position.set(sx * (W / 2 - 0.08), GLASS_Y0 + GLASS_H / 2, -(D / 2 - 0.08));
-  stage.add(p);
-}
-const binFloor = new THREE.Mesh(new THREE.BoxGeometry(W - 0.12, 0.02, D - 0.12), trimMat);
-binFloor.position.y = GLASS_Y0 + 0.01; binFloor.receiveShadow = true;
-stage.add(binFloor);
-const cap = new THREE.Mesh(roundedBox(W + 0.04, CAP_H, D + 0.04, 0.13), whiteMat);
-cap.position.y = GLASS_Y1 + CAP_H / 2; cap.castShadow = true;
-stage.add(cap);
-
-// Labels (painted onto canvases after the font loads)
-function labelPlane(w, h, cw, ch, opts = {}) {
-  const c = document.createElement("canvas"); c.width = cw; c.height = ch;
-  const tex = new THREE.CanvasTexture(c);
-  tex.encoding = THREE.sRGBEncoding; tex.anisotropy = 4;
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
-    new THREE.MeshStandardMaterial(Object.assign({ map: tex, transparent: true, roughness: 0.75, metalness: 0, envMapIntensity: 0.35 }, opts)));
-  return { mesh: m, canvas: c, tex };
-}
-const FONT = '"Zen Maru Gothic", "Arial Rounded MT Bold", sans-serif';
-const badge = labelPlane(0.9, 0.2, 512, 114);
-badge.mesh.position.set(0, GLASS_Y1 + CAP_H / 2, FRONT + 0.025);
-stage.add(badge.mesh);
-
-// Printed card standing just behind the front of the display case
-const CARD_W = 1.7, CARD_H = 1.3;
-const card = labelPlane(CARD_W, CARD_H, 768, 586, { transparent: false, roughness: 0.85 });
-card.mesh.position.set(0, GLASS_Y0 + 0.08 + CARD_H / 2, FRONT - 0.08);
-stage.add(card.mesh);
-
-const LW = W - 0.18, LH = BODY_H - 0.22, LY = BODY_H / 2 + 0.02;
-const LCW = 1024, LCH = Math.round(1024 * LH / LW);
-const frontLabel = labelPlane(LW, LH, LCW, LCH);
-frontLabel.mesh.position.set(0, LY, FACE + 0.002);
-stage.add(frontLabel.mesh);
-
 const KNOB_Y = 1.62, EXIT_Y = 0.6, EXIT_W = 0.8, EXIT_H = 0.66;
-const SLOT = { x: 0.78, y: 2.24 }, RETURN_BTN = { x: 0.82, y: 1.62 };
-const toCanvasY = (y) => (LY + LH / 2 - y) / LH * LCH;
-const toCanvasX = (x) => (x + LW / 2) / LW * LCW;
-const px = (u) => u / LW * LCW; // scene units → canvas px
+const SLOT = { x: 0.78, y: 2.24 }, LOCK = { x: 0.82, y: 1.62 };
+const LW = W - 0.18, LH = BODY_H - 0.22, LY = BODY_H / 2 + 0.02;
+const LAYOUT = { LW, LH, LY, KNOB_Y, EXIT_Y, EXIT_W, EXIT_H };
+const CARD_W = 1.7, CARD_H = 1.3;
 
-function arrowHead(g, x, y, ang, s) {
-  g.save(); g.translate(x, y); g.rotate(ang);
-  g.beginPath(); g.moveTo(s, 0); g.lineTo(-s * 0.7, -s * 0.8); g.lineTo(-s * 0.7, s * 0.8); g.closePath(); g.fill();
-  g.restore();
-}
-function sticker(g, x, y, w, h, header) {
-  g.fillStyle = "#ffffff"; roundRect(g, x, y, w, h, 8); g.fill();
-  g.strokeStyle = "rgba(0,0,0,0.08)"; g.lineWidth = 2; g.stroke();
-  if (header) { g.fillStyle = "#f2c230"; g.fillRect(x + 8, y + 8, w - 16, 18); }
-  g.fillStyle = "rgba(40,44,52,0.28)";
-  for (let ly = y + (header ? 38 : 16); ly < y + h - 10; ly += 13) g.fillRect(x + 12, ly, (w - 24) * (0.6 + 0.4 * ((ly * 7) % 5) / 5), 5);
+const machine = new THREE.Group();
+stage.add(machine);
+function put(geo, mat, x, y, z, parent = machine, cast = true) {
+  const m = shadowed(new THREE.Mesh(geo, mat), cast, true);
+  m.position.set(x, y, z); parent.add(m); return m;
 }
 
-function paintLabels() {
-  // Brand badge on the cap
-  {
-    const g = badge.canvas.getContext("2d"), w = 512, h = 114;
-    g.clearRect(0, 0, w, h);
-    g.fillStyle = "#ffffff"; roundRect(g, 6, 6, w - 12, h - 12, 18); g.fill();
-    g.strokeStyle = "#2559b0"; g.lineWidth = 8; g.stroke();
-    g.fillStyle = "#2559b0"; g.textAlign = "center"; g.textBaseline = "middle";
-    g.font = `900 64px ${FONT}`; g.fillText("GOTCHA", w / 2, h / 2 + 4);
-    badge.tex.needsUpdate = true;
-  }
-  // Display card: an original design in the spirit of the printed capsule-toy cards
-  {
-    const g = card.canvas.getContext("2d"), w = 768, h = 586;
-    const bg = g.createLinearGradient(0, 0, 0, h); bg.addColorStop(0, "#9fc4fb"); bg.addColorStop(1, "#5f97ea");
-    g.fillStyle = bg; g.fillRect(0, 0, w, h);
-    g.fillStyle = "rgba(255,255,255,0.55)"; // clouds
-    for (const [cx, cy, r] of [[90, 120, 46], [140, 110, 36], [640, 90, 40], [690, 104, 30], [600, 420, 34]]) { g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.fill(); }
-    g.fillStyle = "#f2c230"; g.beginPath(); // corner price burst
-    for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2, r = i % 2 ? 54 : 66; g.lineTo(670 + Math.cos(a) * r, 396 + Math.sin(a) * r); }
-    g.closePath(); g.fill();
-    g.fillStyle = "#1c4a94"; g.textAlign = "center"; g.textBaseline = "middle";
-    g.font = `900 30px ${FONT}`; g.fillText("1", 670, 378); g.font = `700 20px ${FONT}`; g.fillText("TURN", 670, 408);
-    g.fillStyle = "#ffffff"; g.strokeStyle = "#1c4a94"; g.lineWidth = 14; g.lineJoin = "round";
-    g.font = `900 64px ${FONT}`; g.strokeText("Daily", w / 2, 92); g.strokeText("Affirmations", w / 2, 158); g.fillText("Daily", w / 2, 92);
-    g.font = `900 64px ${FONT}`; g.fillText("Affirmations", w / 2, 158);
-    g.fillStyle = "#ffffff"; roundRect(g, w / 2 - 150, 196, 300, 40, 20); g.fill();
-    g.fillStyle = "#2559b0"; g.font = `700 22px ${FONT}`; g.fillText("Collect all 9 messages", w / 2, 217);
-    // three capsules with a rolled message peeking out
-    const caps = [[200, 340, "#2f6fd0"], [384, 330, "#ffffff"], [568, 340, "#5c94e3"]];
-    for (const [cx, cy, col] of caps) {
-      g.fillStyle = "rgba(28,74,148,0.18)"; g.beginPath(); g.ellipse(cx, cy + 74, 62, 12, 0, 0, Math.PI * 2); g.fill();
-      g.fillStyle = col; g.beginPath(); g.arc(cx, cy + 6, 64, 0, Math.PI); g.fill();
-      g.strokeStyle = "rgba(28,74,148,0.35)"; g.lineWidth = 3; g.stroke();
-      g.fillStyle = "rgba(255,255,255,0.7)"; g.beginPath(); g.arc(cx, cy, 64, Math.PI, 0); g.fill(); g.stroke();
-      g.fillStyle = "#fff6ea"; g.save(); g.translate(cx + 6, cy - 6); g.rotate(-0.5); roundRect(g, -14, -60, 28, 86, 10); g.fill();
-      g.strokeStyle = "#1c4a94"; g.lineWidth = 4; g.beginPath(); g.moveTo(-14, -30); g.lineTo(14, -30); g.stroke(); g.restore();
-    }
-    // the fine-print strip real cards carry along the bottom
-    g.fillStyle = "#ffffff"; g.fillRect(0, h - 104, w, 104);
-    g.fillStyle = "#f2c230"; g.fillRect(24, h - 92, 120, 18);
-    g.fillStyle = "rgba(40,44,52,0.25)";
-    for (let i = 0; i < 4; i++) g.fillRect(24, h - 64 + i * 14, w * (0.5 + (i % 3) * 0.12), 5);
-    g.fillStyle = "#2559b0"; g.font = `900 26px ${FONT}`; g.textAlign = "right"; g.fillText("Gotcha", w - 24, h - 44);
-    card.tex.needsUpdate = true;
-  }
-  // Mechanism face
-  {
-    const g = frontLabel.canvas.getContext("2d"), w = LCW, h = LCH;
-    g.clearRect(0, 0, w, h);
-    const kx = toCanvasX(0), ky = toCanvasY(KNOB_Y);
-    // yellow arc with arrowhead (turn direction), then the thick blue ring
-    const rY = px(0.545), rB = px(0.465);
-    g.strokeStyle = "#f2c230"; g.lineWidth = px(0.05); g.lineCap = "butt";
-    const a0 = Math.PI * 0.62, a1 = Math.PI * 2.32;
-    g.beginPath(); g.arc(kx, ky, rY, a0, a1); g.stroke();
-    g.fillStyle = "#f2c230"; arrowHead(g, kx + rY * Math.cos(a1), ky + rY * Math.sin(a1), a1 + Math.PI / 2, px(0.09)); // clockwise, like the handle
-    g.strokeStyle = "#2a4fa8"; g.lineWidth = px(0.09);
-    g.beginPath(); g.arc(kx, ky, rB, 0, Math.PI * 2); g.stroke();
-    g.fillStyle = "#d9d1bf"; g.beginPath(); g.arc(kx, ky, rB - px(0.045), 0, Math.PI * 2); g.fill();
-    // red-and-blue "start here" arrow on the left of the ring
-    g.fillStyle = "#2a4fa8"; g.fillRect(kx - rY - px(0.2), ky - px(0.03), px(0.12), px(0.06));
-    arrowHead(g, kx - rY - px(0.06), ky, 0, px(0.06));
+// mechanism unit, raised face plate, base and the seam band under the display case
+put(roundedBox(W, BODY_H, D, 0.16), whiteMat, 0, BODY_H / 2, 0);
+put(roundedBox(W - 0.14, BODY_H - 0.18, 0.1, 0.05), whiteMat, 0, BODY_H / 2 + 0.02, FRONT + 0.01);
+put(roundedBox(W + 0.06, 0.1, D + 0.06, 0.04), trimMat, 0, 0.05, 0);
+put(roundedBox(W + 0.04, 0.12, D + 0.04, 0.05), trimMat, 0, BODY_H + 0.04, 0);
+// moulded groove across the sides, where the two shells meet
+for (const sx of [-1, 1]) put(new THREE.BoxGeometry(0.012, BODY_H - 0.4, D - 0.3), darkMat, sx * (W / 2 + 0.001), BODY_H / 2, 0, machine, false);
 
-    // COIN IN badge with an arrow to the slot
-    const bx = toCanvasX(-0.44), by = toCanvasY(2.35), bw = px(0.9), bh = px(0.2);
-    g.fillStyle = "#2a4fa8"; roundRect(g, bx, by, bw, bh, bh / 2); g.fill();
-    g.fillStyle = "#ffffff"; g.strokeStyle = "#2a4fa8"; g.lineWidth = 4;
-    for (let i = 0; i < 3; i++) { g.beginPath(); g.arc(bx + px(0.13) + i * px(0.065), by + bh / 2, px(0.07), 0, Math.PI * 2); g.fill(); g.stroke(); }
-    g.fillStyle = "#ffffff"; g.font = `900 ${Math.round(px(0.1))}px ${FONT}`; g.textAlign = "left"; g.textBaseline = "middle";
-    g.fillText("COIN IN", bx + px(0.34), by + bh / 2 + 2);
-    g.fillStyle = "#2a4fa8"; arrowHead(g, bx + bw + px(0.06), by + bh / 2, 0, px(0.06));
-    // slot surround
-    g.fillStyle = "#d9d4c8"; g.beginPath(); g.arc(toCanvasX(SLOT.x), toCanvasY(SLOT.y), px(0.17), 0, Math.PI * 2); g.fill();
-    // top-left coin badge and green counter window
-    g.fillStyle = "#2a4fa8"; roundRect(g, toCanvasX(-1.05), toCanvasY(2.36), px(0.26), px(0.26), 8); g.fill();
-    g.fillStyle = "#ffffff"; g.beginPath(); g.arc(toCanvasX(-0.92), toCanvasY(2.23), px(0.08), 0, Math.PI * 2); g.fill();
-    g.fillStyle = "#2a4fa8"; g.font = `900 ${Math.round(px(0.08))}px ${FONT}`; g.textAlign = "center"; g.fillText("1", toCanvasX(-0.92), toCanvasY(2.225));
-    g.fillStyle = "#2b2f36"; roundRect(g, toCanvasX(-1.06), toCanvasY(1.98), px(0.4), px(0.16), 6); g.fill();
-    const lcd = g.createLinearGradient(0, toCanvasY(1.96), 0, toCanvasY(1.84)); lcd.addColorStop(0, "#5ee08a"); lcd.addColorStop(1, "#2fae5c");
-    g.fillStyle = lcd; roundRect(g, toCanvasX(-1.04), toCanvasY(1.96), px(0.36), px(0.12), 4); g.fill();
-    g.fillStyle = "#0e3b1f"; g.font = `900 ${Math.round(px(0.075))}px ${FONT}`; g.fillText("1 TURN", toCanvasX(-0.86), toCanvasY(1.9));
-    // instruction sticker (left) and notice stickers (right)
-    {
-      const sx = toCanvasX(-1.06), sy = toCanvasY(1.5), sw = px(0.34), sh = px(0.3);
-      g.fillStyle = "#ffffff"; roundRect(g, sx, sy, sw, sh, 8); g.fill();
-      g.strokeStyle = "#2a4fa8"; g.lineWidth = 3; g.stroke();
-      g.fillStyle = "#d8352a"; arrowHead(g, sx + 18, sy + 22, 0, 10);
-      g.fillStyle = "#2b2f36"; g.font = `700 ${Math.round(px(0.045))}px ${FONT}`; g.textAlign = "left";
-      ["Turn the", "handle slowly,", "one full turn."].forEach((t, i) => g.fillText(t, sx + 32 - (i ? 22 : 0), sy + 22 + i * px(0.065)));
-    }
-    sticker(g, toCanvasX(0.6), toCanvasY(1.3), px(0.46), px(0.44), true);
-    // coin return pocket (right of the exit) and the take-out recess around the flap
-    g.fillStyle = "#d9d4c8"; roundRect(g, toCanvasX(0.62), toCanvasY(0.7), px(0.24), px(0.3), 8); g.fill();
-    g.fillStyle = "#c6c0b2"; roundRect(g, toCanvasX(0.66), toCanvasY(0.64), px(0.16), px(0.2), 6); g.fill();
-    const ex = toCanvasX(-EXIT_W / 2), ey = toCanvasY(EXIT_Y + EXIT_H / 2);
-    const ew = px(EXIT_W), eh = px(EXIT_H);
-    roundRect(g, ex, ey, ew, eh, px(0.06));
-    const dg = g.createLinearGradient(0, ey, 0, ey + eh); dg.addColorStop(0, "#08090b"); dg.addColorStop(1, "#24272d");
-    g.fillStyle = dg; g.fill();
-    frontLabel.tex.needsUpdate = true;
-  }
-  // Smoked flap with the brand moulded into it
-  {
-    const g = flapLabel.canvas.getContext("2d"), w = 512, h = 440;
-    g.clearRect(0, 0, w, h);
-    g.fillStyle = "rgba(255,255,255,0.10)"; g.textAlign = "center"; g.textBaseline = "middle";
-    g.font = `900 120px ${FONT}`; g.fillText("GOT", w / 2, h / 2 - 66); g.fillText("CHA", w / 2, h / 2 + 66);
-    g.strokeStyle = "rgba(0,0,0,0.35)"; g.lineWidth = 3;
-    g.strokeText("GOT", w / 2 + 3, h / 2 - 63); g.strokeText("CHA", w / 2 + 3, h / 2 + 69);
-    flapLabel.tex.needsUpdate = true;
+// display case
+const glass = put(roundedBox(W - 0.04, GLASS_H, D - 0.04, 0.16), glassMat, 0, GLASS_Y0 + GLASS_H / 2, 0, machine, false);
+glass.renderOrder = 10;
+const glint = put(glass.geometry, glintMat, 0, GLASS_Y0 + GLASS_H / 2, 0, machine, false);
+glint.renderOrder = 11;
+for (const sx of [-1, 1]) put(roundedBox(0.12, GLASS_H, 0.12, 0.04, 2), whiteMat, sx * (W / 2 - 0.08), GLASS_Y0 + GLASS_H / 2, -(D / 2 - 0.08));
+put(new THREE.BoxGeometry(W - 0.12, 0.02, D - 0.12), trimMat, 0, GLASS_Y0 + 0.01, 0, machine, false);
+put(roundedBox(W + 0.04, CAP_H, D + 0.04, 0.13), whiteMat, 0, GLASS_Y1 + CAP_H / 2, 0);
+put(new THREE.BoxGeometry(W + 0.05, 0.014, D + 0.05), darkMat, 0, GLASS_Y1 + 0.07, 0, machine, false); // lid seam
+
+// printed parts
+const badge = put(new THREE.PlaneGeometry(0.9, 0.2), labelMat(paintedTexture("badge")), 0, GLASS_Y1 + CAP_H / 2, FRONT + 0.025, machine, false);
+const card = put(new THREE.PlaneGeometry(CARD_W, CARD_H), labelMat(paintedTexture("card", "hero"), { transparent: false, roughness: 0.45 }),
+  0, GLASS_Y0 + 0.08 + CARD_H / 2, FRONT - 0.08, machine, true);
+card.name = "card";
+for (const sx of [-1, 1]) { // clear clips holding the card up
+  const clip = put(new THREE.BoxGeometry(0.1, 0.16, 0.05), new THREE.MeshPhysicalMaterial({ color: 0xeef4ff, transparent: true, opacity: 0.45, roughness: 0.1, clearcoat: 1 }),
+    sx * (CARD_W / 2 - 0.06), GLASS_Y0 + 0.08 + CARD_H - 0.04, FRONT - 0.08, machine, false);
+  clip.renderOrder = 9;
+}
+put(new THREE.PlaneGeometry(LW, LH), labelMat(paintedTexture("face", LAYOUT)), 0, LY, FACE + 0.002, machine, false);
+
+// screws in the face plate
+{
+  const head = new THREE.CylinderGeometry(0.034, 0.036, 0.016, 28);
+  const slotGeo = new THREE.BoxGeometry(0.046, 0.008, 0.006);
+  for (const [x, y] of [[-(W / 2 - 0.15), BODY_H - 0.14], [W / 2 - 0.15, BODY_H - 0.14], [-(W / 2 - 0.15), 0.26], [W / 2 - 0.15, 0.26]]) {
+    const s = put(head, chromeMat, x, y, FACE + 0.008, machine, false); s.rotation.x = Math.PI / 2;
+    const a = put(slotGeo, darkMat, x, y, FACE + 0.0165, machine, false); a.rotation.z = 0.4;
+    const b = put(slotGeo, darkMat, x, y, FACE + 0.0165, machine, false); b.rotation.z = 0.4 + Math.PI / 2;
   }
 }
-
-// Exit bezel and flap
+// raised blue ring around the dial
+{
+  const ring = put(new THREE.TorusGeometry(0.465, 0.045, 20, 120), ringMat, 0, KNOB_Y, FACE + 0.01, machine, true);
+  ring.scale.z = 0.6;
+}
+// coin mechanism: satin plate, chrome slot boss, return lever
+{
+  const plate = put(roundedBox(0.34, 0.3, 0.03, 0.05), satinMat, SLOT.x, SLOT.y, FACE + 0.015);
+  const boss = put(new THREE.CylinderGeometry(0.105, 0.115, 0.05, 48), chromeMat, SLOT.x, SLOT.y, FACE + 0.045); boss.rotation.x = Math.PI / 2;
+  put(roundedBox(0.032, 0.16, 0.03, 0.012), darkMat, SLOT.x, SLOT.y, FACE + 0.062, machine, false);
+  const lever = put(roundedBox(0.05, 0.1, 0.04, 0.018), chromeMat, SLOT.x + 0.13, SLOT.y - 0.07, FACE + 0.04);
+  lever.rotation.z = -0.3;
+}
+// key lock beside the dial
+{
+  const body = put(new THREE.CylinderGeometry(0.075, 0.08, 0.05, 40), chromeMat, LOCK.x, LOCK.y, FACE + 0.025); body.rotation.x = Math.PI / 2;
+  const face = put(new THREE.CylinderGeometry(0.056, 0.056, 0.01, 40), satinMat, LOCK.x, LOCK.y, FACE + 0.052, machine, false); face.rotation.x = Math.PI / 2;
+  const key = put(new THREE.BoxGeometry(0.016, 0.07, 0.01), darkMat, LOCK.x, LOCK.y, FACE + 0.056, machine, false); key.rotation.z = 0.15;
+}
+// exit bezel, take-out lip and hinge pins
 {
   const outer = roundedRectShape(EXIT_W + 0.14, EXIT_H + 0.14, 0.1);
   outer.holes.push(roundedRectShape(EXIT_W, EXIT_H, 0.06));
-  const bezelGeo = new THREE.ExtrudeGeometry(outer, { depth: 0.05, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.02, bevelSegments: 3, curveSegments: 10 });
-  const bezel = new THREE.Mesh(bezelGeo, whiteMat);
-  bezel.position.set(0, EXIT_Y, FACE - 0.01);
-  bezel.castShadow = true;
-  stage.add(bezel);
-  // a small ledge under the exit, like the real take-out lip
-  const lip = new THREE.Mesh(roundedBox(EXIT_W + 0.14, 0.06, 0.16, 0.025), whiteMat);
-  lip.position.set(0, EXIT_Y - EXIT_H / 2 - 0.1, FACE + 0.06); lip.castShadow = true;
-  stage.add(lip);
+  const bezelGeo = new THREE.ExtrudeGeometry(outer, { depth: 0.05, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.02, bevelSegments: 4, curveSegments: 12 });
+  put(bezelGeo, whiteMat, 0, EXIT_Y, FACE - 0.01);
+  put(roundedBox(EXIT_W + 0.14, 0.06, 0.16, 0.025), whiteMat, 0, EXIT_Y - EXIT_H / 2 - 0.1, FACE + 0.06);
+  for (const sx of [-1, 1]) {
+    const pin = put(new THREE.CylinderGeometry(0.018, 0.018, 0.05, 16), chromeMat, sx * (EXIT_W / 2 - 0.01), EXIT_Y + EXIT_H / 2 - 0.02, FACE + 0.05, machine, false);
+    pin.rotation.z = Math.PI / 2;
+  }
 }
+
+// smoked flap (swings on the hero machine)
 const flapPivot = new THREE.Group();
 flapPivot.position.set(0, EXIT_Y + EXIT_H / 2 - 0.02, FACE + 0.05);
-const flap = new THREE.Mesh(new THREE.PlaneGeometry(EXIT_W - 0.04, EXIT_H - 0.04),
-  new THREE.MeshPhysicalMaterial({ color: 0x101216, transparent: true, opacity: 0.92, roughness: 0.25, clearcoat: 0.3, envMapIntensity: 0.15, depthWrite: false, side: THREE.DoubleSide }));
-flap.position.y = -(EXIT_H - 0.04) / 2;
-flap.renderOrder = 11;
-const flapLabel = labelPlane(EXIT_W - 0.04, EXIT_H - 0.04, 512, 440, { depthWrite: false });
-flapLabel.mesh.position.set(0, -(EXIT_H - 0.04) / 2, 0.003);
-flapLabel.mesh.renderOrder = 12;
-flapPivot.add(flap, flapLabel.mesh);
+{
+  const fw = EXIT_W - 0.04, fh = EXIT_H - 0.04;
+  const flap = new THREE.Mesh(new THREE.PlaneGeometry(fw, fh), new THREE.MeshPhysicalMaterial({
+    color: 0x0f1115, transparent: true, opacity: 0.9, roughness: 0.2, clearcoat: 0.6, clearcoatRoughness: 0.1, envMapIntensity: 0.7, depthWrite: false, side: THREE.DoubleSide }));
+  flap.position.y = -fh / 2; flap.renderOrder = 11;
+  const mould = new THREE.Mesh(new THREE.PlaneGeometry(fw, fh), labelMat(paintedTexture("flap"), { depthWrite: false }));
+  mould.position.set(0, -fh / 2, 0.003); mould.renderOrder = 12;
+  flapPivot.add(flap, mould);
+}
 stage.add(flapPivot);
 
-// Coin slot and coin-return button
-{
-  const boss = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.13, 0.05, 40), greyMat);
-  boss.rotation.x = Math.PI / 2; boss.position.set(SLOT.x, SLOT.y, FACE + 0.025);
-  const slit = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.15, 0.02), darkMat);
-  slit.position.set(SLOT.x, SLOT.y, FACE + 0.052);
-  const btn = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.085, 0.06, 32), greyMat);
-  btn.rotation.x = Math.PI / 2; btn.position.set(RETURN_BTN.x, RETURN_BTN.y, FACE + 0.03);
-  const btnFace = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.01, 32), darkMat);
-  btnFace.rotation.x = Math.PI / 2; btnFace.position.set(RETURN_BTN.x, RETURN_BTN.y, FACE + 0.062);
-  stage.add(boss, slit, btn, btnFace);
-}
-
-// Knob: a big white dial with a raised paddle across it
+// Knob: a moulded white dial with a raised paddle
 const knob = new THREE.Group();
 knob.position.set(0, KNOB_Y, FACE);
 {
-  const dialMat = new THREE.MeshPhysicalMaterial({ color: 0xfaf8f2, roughness: 0.35, clearcoat: 0.6, clearcoatRoughness: 0.25, envMapIntensity: 0.7 });
-  const disk = new THREE.Mesh(new THREE.CylinderGeometry(0.39, 0.42, 0.1, 64), dialMat);
-  disk.rotation.x = Math.PI / 2; disk.position.z = 0.05; disk.castShadow = true;
-  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.37, 48, 16, 0, Math.PI * 2, 0, 0.42), dialMat);
-  dome.rotation.x = Math.PI / 2; dome.position.z = 0.1 - 0.37 * Math.cos(0.42);
-  const gripMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.3, clearcoat: 0.8, envMapIntensity: 0.7, emissive: 0x2f6fd0, emissiveIntensity: 0 });
-  const grip = new THREE.Mesh(roundedBox(0.74, 0.18, 0.24, 0.08), gripMat);
-  grip.position.z = 0.2; grip.castShadow = true;
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.405, 0.022, 12, 64), trimMat);
-  rim.position.z = 0.1;
-  knob.add(disk, dome, rim, grip);
+  // lathe profile (radius, height): a stepped rim rising to a shallow dome
+  const prof = [[0.425, 0], [0.425, 0.04], [0.415, 0.062], [0.395, 0.072], [0.37, 0.078], [0.3, 0.098], [0.2, 0.112], [0.1, 0.12], [0, 0.122]]
+    .map(([r, h]) => new THREE.Vector2(r, h));
+  const dial = shadowed(new THREE.Mesh(new THREE.LatheGeometry(prof, 96), dialMat));
+  dial.rotation.x = Math.PI / 2;
+  // the paddle: a rounded bar, extruded and bevelled so it catches a highlight along its top edge
+  const paddleGeo = new THREE.ExtrudeGeometry(roundedRectShape(0.7, 0.13, 0.065),
+    { depth: 0.14, bevelEnabled: true, bevelThickness: 0.035, bevelSize: 0.03, bevelSegments: 6, curveSegments: 16 });
+  const gripMat = plastic(0xffffff, { roughness: 0.7, clearcoat: 0.8, clearcoatRoughness: 0.15, emissive: 0x2f6fd0, emissiveIntensity: 0 });
+  const paddle = shadowed(new THREE.Mesh(paddleGeo, gripMat));
+  paddle.position.z = 0.09;
+  knob.add(dial, paddle);
   knob.userData.grip = gripMat;
   knob.traverse((o) => { if (o.isMesh) o.userData.kind = "knob"; });
 }
 stage.add(knob);
+
+// Dark mode: the shop after hours, with the hero machine under its own light
+function applyTheme() {
+  const dark = isDark();
+  floorMat.color.set(dark ? 0x4c5059 : 0xe8e8e8);
+  wallMat.color.set(dark ? 0x3a3f4a : 0xf2f0ec);
+  hemi.intensity = dark ? 0.1 : 0.26;
+  sun.intensity = dark ? 0.45 : 1.0;
+  fill.intensity = dark ? 0.1 : 0.22;
+  spot.intensity = dark ? 1.4 : 0.75;
+  renderer.setClearColor(dark ? 0x1a1d24 : 0xe9e6e0, 1);
+}
+applyTheme();
+if (window.matchMedia) {
+  const mq = window.matchMedia("(prefers-color-scheme: dark)");
+  if (mq.addEventListener) mq.addEventListener("change", applyTheme);
+}
 
 /* ---------- Capsules ---------- */
 const R = 0.29;
@@ -758,6 +716,25 @@ function addToPile(fromAbove) {
 }
 for (let i = 0; i < 26; i++) addToPile(false);
 
+// Neighbouring machines in the row: copies of the hero, each with its own card and a static pile
+for (const [side, variant] of [[-1, "snack"], [1, "cloud"]]) {
+  const n = new THREE.Group();
+  n.position.x = side * PITCH;
+  const body = machine.clone();
+  const cardMesh = body.getObjectByName("card");
+  cardMesh.material = labelMat(paintedTexture("card", variant), { transparent: false, roughness: 0.45 });
+  n.add(body, knob.clone(), flapPivot.clone());
+  n.children[1].rotation.z = side * 0.6;
+  n.children[1].traverse((o) => { if (o.isMesh) o.userData.kind = null; });
+  const tints = variant === "snack" ? [0xf59bb8, 0xf7c66a, 0x9be29b, 0xffffff] : [0xb8aff0, 0xa8dcd1, 0xffffff, 0x8fa8f0];
+  pile.slice(0, 20).forEach((c, i) => {
+    const k = makeCapsule(tints[i % tints.length], false);
+    k.position.copy(c.userData.base); k.rotation.copy(c.rotation); k.rotation.y += side;
+    n.add(k);
+  });
+  stage.add(n);
+}
+
 /* ---------- Tweens ---------- */
 const tweens = new Set();
 function tween(dur, fn, ef = ease.inOut) {
@@ -780,7 +757,7 @@ function fitCamera() {
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   const tanH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-  const needHalfH = 3.75, needHalfW = 2.05;
+  const needHalfH = 3.35, needHalfW = 1.7;
   const dist = Math.max(needHalfH / tanH, needHalfW / (tanH * camera.aspect));
   const dir = new THREE.Vector3(0, 0.22, 1).normalize();
   homeCam.pos.copy(homeCam.target).addScaledVector(dir, dist);
@@ -950,7 +927,7 @@ stageEl.addEventListener("pointermove", (e) => {
     const dx = e.clientX - down.x;
     if (Math.abs(dx) > 6) down.moved = true;
     if (down.moved && (state === "idle" || state === "dispensed")) {
-      stage.rotation.y = THREE.MathUtils.clamp(down.yaw + dx * 0.008, -0.9, 0.9);
+      stage.rotation.y = THREE.MathUtils.clamp(down.yaw + dx * 0.006, -0.42, 0.42);
     }
     return;
   }

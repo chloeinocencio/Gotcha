@@ -22,6 +22,7 @@ extension Font {
 
 struct ContentView: View {
     @StateObject private var gacha = GachaController()
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         ZStack {
@@ -59,6 +60,8 @@ struct ContentView: View {
             }
         }
         .foregroundStyle(Color.gInk)
+        .onAppear { gacha.applyTheme(dark: colorScheme == .dark) }
+        .onChange(of: colorScheme) { gacha.applyTheme(dark: $0 == .dark) }
     }
 
     private var header: some View {

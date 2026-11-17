@@ -27,7 +27,7 @@ final class GachaController: ObservableObject {
     private var dispensed: SCNNode?
     private var aspect: Float = 0.5
     private var homeCamPos = SCNVector3(0, 3, 12)
-    private let homeTarget = SCNVector3(0, 2.05, 0.9)
+    private let homeTarget = SCNVector3(0, 2.3, 0.9)
     private var panStartYaw: Float = 0
 
     private lazy var reduceMotion = UIAccessibility.isReduceMotionEnabled
@@ -59,6 +59,7 @@ final class GachaController: ObservableObject {
         buildWorld()
         buildMachine()
         for _ in 0..<26 { _ = addToPile(fromAbove: false) }
+        buildNeighbors()
         startGlow()
     }
 
@@ -88,7 +89,7 @@ final class GachaController: ObservableObject {
     func panBegan() { panStartYaw = stage.eulerAngles.y }
     func panChanged(dx: CGFloat) {
         guard phase == .idle || phase == .dispensed else { return }
-        stage.eulerAngles.y = max(-0.9, min(0.9, panStartYaw + Float(dx) * 0.008))
+        stage.eulerAngles.y = max(-0.42, min(0.42, panStartYaw + Float(dx) * 0.006))
     }
 
     func close(turnAgain: Bool) {
@@ -99,7 +100,7 @@ final class GachaController: ObservableObject {
         guard size.width > 0, size.height > 0 else { return }
         aspect = Float(size.width / size.height)
         let tanH = tan(Float(17.5 * .pi / 180))
-        let dist = max(3.75 / tanH, 2.05 / (tanH * aspect))
+        let dist = max(3.35 / tanH, 1.7 / (tanH * aspect))
         let dir = SCNVector3(0, 0.22, 1)
         let len = sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z)
         homeCamPos = SCNVector3(homeTarget.x + dir.x / len * dist,
@@ -289,13 +290,45 @@ final class GachaController: ObservableObject {
 
     // MARK: - World
 
+    // The scene recreates a capsule-toy corner: a tiled floor, a painted wall, and a row of three machines.
+    // Every printed texture is baked from web/textures.js by tools/bake-textures.py (Textures/tex-*.png).
+    private let machineNode = SCNNode()
+    private let floorMat = SCNMaterial()
+    private let wallMat = SCNMaterial()
+    private let ambientLight = SCNLight()
+    private let sunLight = SCNLight()
+    private let fillLight = SCNLight()
+    private let spotLight = SCNLight()
+    private let neighborGrip = Mat.pbr(.white, roughness: 0.3, clearCoat: 0.8)
+    private var wallZ: Float { -D / 2 - 0.08 }
+    private var pitch: Float { W + 0.08 }
+
+    private func tex(_ name: String) -> UIImage? { UIImage(named: "tex-\(name)") }
+
+    private func repeatTexture(_ p: SCNMaterialProperty, _ sx: Float, _ sy: Float) {
+        p.wrapS = .repeat
+        p.wrapT = .repeat
+        p.contentsTransform = SCNMatrix4MakeScale(sx, sy, 1)
+    }
+
     private func buildWorld() {
         let cam = SCNCamera()
         cam.fieldOfView = 35
         cam.zNear = 0.1
         cam.zFar = 100
         cam.wantsHDR = true
-        cam.exposureOffset = 0.1
+        cam.exposureOffset = 0
+        // contact shading in the crevices, a lens vignette and a touch of grain, so it reads as a photo
+        cam.screenSpaceAmbientOcclusionIntensity = 0.9
+        cam.screenSpaceAmbientOcclusionRadius = 0.35
+        cam.screenSpaceAmbientOcclusionBias = 0.03
+        cam.screenSpaceAmbientOcclusionDepthThreshold = 0.2
+        cam.screenSpaceAmbientOcclusionNormalThreshold = 0.3
+        cam.vignettingPower = 0.6
+        cam.vignettingIntensity = 0.45
+        cam.grainIntensity = 0.035
+        cam.grainScale = 1
+        cam.grainIsColored = false
         cameraNode.camera = cam
         cameraNode.position = homeCamPos
         lookTarget.position = homeTarget
@@ -305,53 +338,135 @@ final class GachaController: ObservableObject {
         cameraNode.constraints = [look]
         scene.rootNode.addChildNode(cameraNode)
 
-        scene.lightingEnvironment.contents = environmentImage()
-        scene.lightingEnvironment.intensity = 1.1
-        scene.background.contents = UIColor.clear
+        // shop-light reflections: rows of ceiling fluorescents and a softbox behind the viewer
+        scene.lightingEnvironment.contents = tex("env") ?? environmentImage()
+        scene.lightingEnvironment.intensity = 0.9
+        scene.background.contents = UIColor(hex: 0xE9E6E0)
 
-        let ambient = SCNLight()
-        ambient.type = .ambient
-        ambient.intensity = 180
-        ambient.color = UIColor(hex: 0xE8EEF7)
-        let ambientNode = SCNNode(); ambientNode.light = ambient
+        ambientLight.type = .ambient
+        ambientLight.intensity = 110
+        ambientLight.color = UIColor(hex: 0xF3F0EA)
+        let ambientNode = SCNNode(); ambientNode.light = ambientLight
         scene.rootNode.addChildNode(ambientNode)
 
-        let sun = SCNLight()
-        sun.type = .directional
-        sun.intensity = 1100
-        sun.castsShadow = true
-        sun.shadowMode = .deferred
-        sun.shadowColor = UIColor.black.withAlphaComponent(0.16)
-        sun.shadowSampleCount = 16
-        sun.shadowRadius = 6
-        sun.automaticallyAdjustsShadowProjection = true
-        sun.shadowMapSize = CGSize(width: 2048, height: 2048)
-        let sunNode = SCNNode(); sunNode.light = sun
-        sunNode.position = SCNVector3(2.2, 9, 5)
+        sunLight.type = .directional
+        sunLight.intensity = 950
+        sunLight.color = UIColor(hex: 0xFFFAF0)
+        sunLight.castsShadow = true
+        sunLight.shadowMode = .deferred
+        sunLight.shadowColor = UIColor.black.withAlphaComponent(0.35)
+        sunLight.shadowSampleCount = 16
+        sunLight.shadowRadius = 8
+        sunLight.automaticallyAdjustsShadowProjection = true
+        sunLight.shadowMapSize = CGSize(width: 2048, height: 2048)
+        let sunNode = SCNNode(); sunNode.light = sunLight
+        sunNode.position = SCNVector3(3.4, 10, 4.6)
         sunNode.look(at: SCNVector3(0, 1.5, 0))
         scene.rootNode.addChildNode(sunNode)
 
-        let floor = SCNFloor()
-        floor.reflectivity = 0
-        let floorMat = SCNMaterial()
-        floorMat.lightingModel = .shadowOnly
-        floor.materials = [floorMat]
-        scene.rootNode.addChildNode(SCNNode(geometry: floor))
+        fillLight.type = .directional
+        fillLight.intensity = 220
+        fillLight.color = UIColor(hex: 0xDFE8FF)
+        let fillNode = SCNNode(); fillNode.light = fillLight
+        fillNode.position = SCNVector3(-5, 3, 4)
+        fillNode.look(at: SCNVector3(0, 1.5, 0))
+        scene.rootNode.addChildNode(fillNode)
+
+        // a soft spot on the hero machine, so it reads brighter than its neighbours
+        spotLight.type = .spot
+        spotLight.intensity = 700
+        spotLight.color = UIColor(hex: 0xFFF8EE)
+        spotLight.spotInnerAngle = 16
+        spotLight.spotOuterAngle = 40
+        let spotNode = SCNNode(); spotNode.light = spotLight
+        spotNode.position = SCNVector3(0, 9, 7)
+        spotNode.look(at: SCNVector3(0, 2.2, 0))
+        scene.rootNode.addChildNode(spotNode)
 
         scene.rootNode.addChildNode(stage)
+        buildRoom()
+    }
+
+    /// Light or dark: the dark look is the shop after hours, with the hero machine under its own light.
+    func applyTheme(dark: Bool) {
+        floorMat.multiply.contents = dark ? UIColor(hex: 0x4C5059) : UIColor(hex: 0xE8E8E8)
+        wallMat.multiply.contents = dark ? UIColor(hex: 0x3A3F4A) : UIColor(hex: 0xF2F0EC)
+        ambientLight.intensity = dark ? 45 : 110
+        sunLight.intensity = dark ? 480 : 950
+        fillLight.intensity = dark ? 100 : 220
+        spotLight.intensity = dark ? 1400 : 700
+        scene.lightingEnvironment.intensity = dark ? 0.45 : 0.9
+        scene.background.contents = dark ? UIColor(hex: 0x1A1D24) : UIColor(hex: 0xE9E6E0)
     }
 
     private func environmentImage() -> UIImage {
         renderLabel(size: CGSize(width: 512, height: 256)) { g, size in
-            let colors = [UIColor.white.cgColor, UIColor(hex: 0xE6ECF4).cgColor, UIColor(hex: 0xA9B4C4).cgColor] as CFArray
+            let colors = [UIColor(hex: 0xBDBCB8).cgColor, UIColor(hex: 0x86857F).cgColor, UIColor(hex: 0x3C3B39).cgColor] as CFArray
             if let grad = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 0.5, 1]) {
                 g.drawLinearGradient(grad, start: .zero, end: CGPoint(x: 0, y: size.height), options: [])
             }
             g.setFillColor(UIColor.white.cgColor)
-            g.fill(CGRect(x: 60, y: 30, width: 120, height: 50))
-            g.fill(CGRect(x: 320, y: 40, width: 140, height: 40))
-            g.fill(CGRect(x: 200, y: 10, width: 90, height: 25))
+            for i in 0..<6 { g.fill(CGRect(x: CGFloat(i) * 85, y: 14, width: 55, height: 6)) }
+            g.fill(CGRect(x: 215, y: 75, width: 85, height: 55))
         }
+    }
+
+    private func buildRoom() {
+        floorMat.lightingModel = .physicallyBased
+        floorMat.diffuse.contents = tex("floor") ?? UIColor(hex: 0xD9DADC)
+        repeatTexture(floorMat.diffuse, 6, 6)
+        floorMat.roughness.contents = 0.42
+        floorMat.metalness.contents = 0.0
+        let floorGeo = SCNPlane(width: 36, height: 36)
+        floorGeo.materials = [floorMat]
+        let floor = SCNNode(geometry: floorGeo)
+        floor.eulerAngles.x = -.pi / 2
+        floor.position = SCNVector3(0, 0, 8)
+        floor.castsShadow = false
+        stage.addChildNode(floor)
+
+        wallMat.lightingModel = .physicallyBased
+        wallMat.diffuse.contents = tex("wall") ?? UIColor(hex: 0xEFECE6)
+        repeatTexture(wallMat.diffuse, 5, 2)
+        wallMat.roughness.contents = 0.9
+        wallMat.metalness.contents = 0.0
+        let wallGeo = SCNPlane(width: 36, height: 14)
+        wallGeo.materials = [wallMat]
+        let wall = SCNNode(geometry: wallGeo)
+        wall.position = SCNVector3(0, 7, wallZ)
+        wall.castsShadow = false
+        stage.addChildNode(wall)
+
+        _ = add(SCNBox(width: 36, height: 0.16, length: 0.04, chamferRadius: 0), Mat.pbr(UIColor(hex: 0xCFCAC0), roughness: 0.6),
+                at: SCNVector3(0, 0.08, wallZ + 0.02), shadow: false)
+
+        // dark crevices where the machines stand shoulder to shoulder
+        let totalH = bodyH + glassH + capH
+        let crevice = Mat.pbr(UIColor(hex: 0x24221F), roughness: 1)
+        for sx: Float in [-1, 1] {
+            for k: Float in [0.5, 1.5] {
+                _ = add(SCNBox(width: CGFloat(pitch - W + 0.02), height: CGFloat(totalH), length: CGFloat(D - 0.1), chamferRadius: 0), crevice,
+                        at: SCNVector3(sx * pitch * k, totalH / 2 + 0.05, 0), shadow: false)
+            }
+        }
+        // soft contact shadows under each machine and on the wall behind it
+        for x: Float in [-pitch, 0, pitch] {
+            let f = add(SCNPlane(width: CGFloat(W + 0.7), height: CGFloat(D + 0.7)), contactShadowMaterial(0.55), at: SCNVector3(x, 0.004, 0), shadow: false)
+            f.eulerAngles.x = -.pi / 2
+            _ = add(SCNPlane(width: CGFloat(W + 0.9), height: CGFloat(bodyH + glassH + 0.9)), contactShadowMaterial(0.35),
+                    at: SCNVector3(x, (bodyH + glassH) / 2 + 0.1, wallZ + 0.004), shadow: false)
+        }
+    }
+
+    private func contactShadowMaterial(_ opacity: CGFloat) -> SCNMaterial {
+        let m = SCNMaterial()
+        m.lightingModel = .constant
+        m.diffuse.contents = UIColor.black
+        m.transparent.contents = tex("ao")
+        m.transparencyMode = .aOne
+        m.transparency = opacity
+        m.writesToDepthBuffer = false
+        return m
     }
 
     // MARK: - Machine
@@ -365,253 +480,215 @@ final class GachaController: ObservableObject {
         return n
     }
 
+    /// Moulded plastic with a fine surface grain in its roughness, so highlights break up like the real thing.
+    private func plastic(_ color: UIColor, clearCoat: CGFloat = 0.3) -> SCNMaterial {
+        let m = Mat.pbr(color, roughness: 0.42, clearCoat: clearCoat)
+        if let grain = tex("grain") {
+            m.roughness.contents = grain
+            repeatTexture(m.roughness, 2, 2)
+        }
+        m.clearCoatRoughness.contents = 0.3
+        return m
+    }
+
+    private func path(_ rect: CGRect, radius: CGFloat) -> UIBezierPath {
+        let p = UIBezierPath(roundedRect: rect, cornerRadius: radius)
+        p.flatness = 0.002 // scene units are small; the default flatness would facet the curves
+        return p
+    }
+
     // Modelled on the classic capsule-toy machine: a clear display case on top with a printed card inside,
-    // and a cream mechanism unit below with a big white dial in a blue ring, a coin slot and a smoked exit flap.
+    // and a cream mechanism unit below with a big white dial in a raised blue ring, a coin mechanism,
+    // a key lock and a smoked exit flap.
     private func buildMachine() {
-        let shell = Mat.pbr(Palette.shell, roughness: 0.45, clearCoat: 0.35)
-        let trim = Mat.pbr(Palette.trim, roughness: 0.5, clearCoat: 0.2)
-        let grey = Mat.pbr(UIColor(hex: 0x8C8F96), roughness: 0.35)
-        grey.metalness.contents = 0.6
-        let dark = Mat.pbr(UIColor(hex: 0x1B1D22), roughness: 0.6)
-        let glassMat = Mat.clear(.white, opacity: 0.07)
+        let shell = plastic(Palette.shell)
+        let trim = plastic(Palette.trim, clearCoat: 0.15)
+        let ringMat = plastic(UIColor(hex: 0x1D42A8), clearCoat: 0.35)
+        let dialMat = plastic(UIColor(hex: 0xFBF9F3), clearCoat: 0.7)
+        dialMat.isDoubleSided = true
+        let chrome = Mat.pbr(UIColor(hex: 0xD4D7DC), roughness: 0.28)
+        chrome.metalness.contents = 1.0
+        let satin = Mat.pbr(UIColor(hex: 0xA9ADB4), roughness: 0.45)
+        satin.metalness.contents = 0.9
+        let dark = Mat.pbr(UIColor(hex: 0x15171B), roughness: 0.55)
+        // Clear plastic: a faint body plus an additive layer that only carries reflections, so the case glints
+        // without fogging the capsules behind it.
+        let glassMat = Mat.clear(.white, opacity: 0.05)
+        let glint = SCNMaterial()
+        glint.lightingModel = .physicallyBased
+        glint.diffuse.contents = UIColor.black
+        glint.roughness.contents = 0.04
+        glint.metalness.contents = 0.0
+        glint.blendMode = .add
+        glint.writesToDepthBuffer = false
+        let clipMat = Mat.clear(UIColor(hex: 0xEEF4FF), opacity: 0.45)
         let cg = { (v: Float) in CGFloat(v) }
+        let m = machineNode
+        stage.addChildNode(m)
 
-        // Mechanism unit, its raised face plate, the base and the seam band under the display case
-        _ = add(SCNBox(width: cg(W), height: cg(bodyH), length: cg(D), chamferRadius: 0.16), shell, at: SCNVector3(0, bodyH / 2, 0))
+        // mechanism unit, raised face plate, base and the seam band under the display case
+        _ = add(SCNBox(width: cg(W), height: cg(bodyH), length: cg(D), chamferRadius: 0.16), shell, at: SCNVector3(0, bodyH / 2, 0), to: m)
         _ = add(SCNBox(width: cg(W - 0.14), height: cg(bodyH - 0.18), length: 0.1, chamferRadius: 0.05), shell,
-                at: SCNVector3(0, bodyH / 2 + 0.02, front + 0.01))
-        _ = add(SCNBox(width: cg(W + 0.06), height: 0.1, length: cg(D + 0.06), chamferRadius: 0.04), trim, at: SCNVector3(0, 0.05, 0))
-        _ = add(SCNBox(width: cg(W + 0.04), height: 0.12, length: cg(D + 0.04), chamferRadius: 0.05), trim, at: SCNVector3(0, bodyH + 0.04, 0))
+                at: SCNVector3(0, bodyH / 2 + 0.02, front + 0.01), to: m)
+        _ = add(SCNBox(width: cg(W + 0.06), height: 0.1, length: cg(D + 0.06), chamferRadius: 0.04), trim, at: SCNVector3(0, 0.05, 0), to: m)
+        _ = add(SCNBox(width: cg(W + 0.04), height: 0.12, length: cg(D + 0.04), chamferRadius: 0.05), trim, at: SCNVector3(0, bodyH + 0.04, 0), to: m)
+        for sx: Float in [-1, 1] { // moulded groove where the two shells meet
+            _ = add(SCNBox(width: 0.012, height: cg(bodyH - 0.4), length: cg(D - 0.3), chamferRadius: 0), dark,
+                    at: SCNVector3(sx * (W / 2 + 0.001), bodyH / 2, 0), shadow: false, to: m)
+        }
 
-        // Display case: one clear window, back posts only, cap on top
+        // display case
+        let caseY = glassY0 + glassH / 2
         let glass = add(SCNBox(width: cg(W - 0.04), height: cg(glassH), length: cg(D - 0.04), chamferRadius: 0.16), glassMat,
-                        at: SCNVector3(0, glassY0 + glassH / 2, 0), shadow: false)
+                        at: SCNVector3(0, caseY, 0), shadow: false, to: m)
         glass.renderingOrder = 10
+        let glintNode = add(SCNBox(width: cg(W - 0.04), height: cg(glassH), length: cg(D - 0.04), chamferRadius: 0.16), glint,
+                            at: SCNVector3(0, caseY, 0), shadow: false, to: m)
+        glintNode.renderingOrder = 11
         for sx: Float in [-1, 1] {
             _ = add(SCNBox(width: 0.12, height: cg(glassH), length: 0.12, chamferRadius: 0.04), shell,
-                    at: SCNVector3(sx * (W / 2 - 0.08), glassY0 + glassH / 2, -(D / 2 - 0.08)))
+                    at: SCNVector3(sx * (W / 2 - 0.08), caseY, -(D / 2 - 0.08)), to: m)
         }
         _ = add(SCNBox(width: cg(W - 0.12), height: 0.02, length: cg(D - 0.12), chamferRadius: 0), trim,
-                at: SCNVector3(0, glassY0 + 0.01, 0), shadow: false)
+                at: SCNVector3(0, glassY0 + 0.01, 0), shadow: false, to: m)
         _ = add(SCNBox(width: cg(W + 0.04), height: cg(capH), length: cg(D + 0.04), chamferRadius: 0.13), shell,
-                at: SCNVector3(0, glassY1 + capH / 2, 0))
+                at: SCNVector3(0, glassY1 + capH / 2, 0), to: m)
+        _ = add(SCNBox(width: cg(W + 0.05), height: 0.014, length: cg(D + 0.05), chamferRadius: 0), dark,
+                at: SCNVector3(0, glassY1 + 0.07, 0), shadow: false, to: m) // lid seam
 
-        // Brand badge on the cap
-        let badgeImg = renderLabel(size: CGSize(width: 512, height: 114)) { g, size in
-            let r = UIBezierPath(roundedRect: CGRect(x: 6, y: 6, width: size.width - 12, height: size.height - 12), cornerRadius: 18)
-            g.setFillColor(UIColor.white.cgColor); g.addPath(r.cgPath); g.fillPath()
-            g.setStrokeColor(Palette.blueInk.cgColor); g.setLineWidth(8); g.addPath(r.cgPath); g.strokePath()
-            drawText("GOTCHA", font: roundedFont(64, .black), color: Palette.blueInk, center: CGPoint(x: size.width / 2, y: size.height / 2 + 2))
+        // printed parts
+        if let img = tex("badge") {
+            _ = add(SCNPlane(width: 0.9, height: 0.2), Mat.label(img), at: SCNVector3(0, glassY1 + capH / 2, front + 0.025), shadow: false, to: m)
         }
-        _ = add(SCNPlane(width: 0.9, height: 0.2), Mat.label(badgeImg), at: SCNVector3(0, glassY1 + capH / 2, front + 0.025), shadow: false)
-
-        // Printed card standing just behind the front of the display case
         let cardW: Float = 1.7, cardH: Float = 1.3
-        _ = add(SCNPlane(width: cg(cardW), height: cg(cardH)), Mat.label(cardImage()),
-                at: SCNVector3(0, glassY0 + 0.08 + cardH / 2, front - 0.08), shadow: false)
-
-        // Mechanism face
+        let card = add(SCNPlane(width: cg(cardW), height: cg(cardH)), Mat.label(tex("card-hero") ?? UIImage()),
+                       at: SCNVector3(0, glassY0 + 0.08 + cardH / 2, front - 0.08), to: m)
+        card.name = "card"
+        for sx: Float in [-1, 1] { // clear clips holding the card up
+            let clip = add(SCNBox(width: 0.1, height: 0.16, length: 0.05, chamferRadius: 0.01), clipMat,
+                           at: SCNVector3(sx * (cardW / 2 - 0.06), glassY0 + 0.08 + cardH - 0.04, front - 0.08), shadow: false, to: m)
+            clip.renderingOrder = 9
+        }
         let lw = W - 0.18, lh = bodyH - 0.22, ly = bodyH / 2 + 0.02
-        _ = add(SCNPlane(width: cg(lw), height: cg(lh)), Mat.label(faceImage(lw: lw, lh: lh, ly: ly)),
-                at: SCNVector3(0, ly, face + 0.002), shadow: false)
+        if let img = tex("face") {
+            _ = add(SCNPlane(width: cg(lw), height: cg(lh)), Mat.label(img), at: SCNVector3(0, ly, face + 0.002), shadow: false, to: m)
+        }
 
-        // Exit bezel and the small take-out lip under it
-        let bezelPath = Geo.roundedRectPath(width: cg(exitW + 0.14), height: cg(exitH + 0.14), radius: 0.1)
-        bezelPath.append(Geo.roundedRectPath(width: cg(exitW), height: cg(exitH), radius: 0.06))
+        // screws in the face plate
+        for (x, y) in [(-(W / 2 - 0.15), bodyH - 0.14), (W / 2 - 0.15, bodyH - 0.14), (-(W / 2 - 0.15), Float(0.26)), (W / 2 - 0.15, Float(0.26))] {
+            let head = add(SCNCylinder(radius: 0.035, height: 0.016), chrome, at: SCNVector3(x, y, face + 0.008), shadow: false, to: m)
+            head.eulerAngles.x = .pi / 2
+            for a: Float in [0.4, 0.4 + .pi / 2] {
+                let slot = add(SCNBox(width: 0.046, height: 0.008, length: 0.006, chamferRadius: 0), dark,
+                               at: SCNVector3(x, y, face + 0.0165), shadow: false, to: m)
+                slot.eulerAngles.z = a
+            }
+        }
+        // raised blue ring around the dial
+        let ring = add(SCNTorus(ringRadius: 0.465, pipeRadius: 0.045), ringMat, at: SCNVector3(0, knobY, face + 0.01), to: m)
+        ring.scale = SCNVector3(1, 0.6, 1)
+        ring.eulerAngles.x = .pi / 2
+
+        // coin mechanism: satin plate, chrome slot boss, return lever
+        _ = add(SCNBox(width: 0.34, height: 0.3, length: 0.03, chamferRadius: 0.014), satin, at: SCNVector3(slotX, slotY, face + 0.015), to: m)
+        let boss = add(SCNCone(topRadius: 0.105, bottomRadius: 0.115, height: 0.05), chrome, at: SCNVector3(slotX, slotY, face + 0.045), to: m)
+        boss.eulerAngles.x = .pi / 2
+        _ = add(SCNBox(width: 0.032, height: 0.16, length: 0.03, chamferRadius: 0.012), dark, at: SCNVector3(slotX, slotY, face + 0.062), shadow: false, to: m)
+        let lever = add(SCNBox(width: 0.05, height: 0.1, length: 0.04, chamferRadius: 0.018), chrome,
+                        at: SCNVector3(slotX + 0.13, slotY - 0.07, face + 0.04), to: m)
+        lever.eulerAngles.z = -0.3
+
+        // key lock beside the dial
+        let lock = add(SCNCone(topRadius: 0.075, bottomRadius: 0.08, height: 0.05), chrome, at: SCNVector3(returnX, knobY, face + 0.025), to: m)
+        lock.eulerAngles.x = .pi / 2
+        let lockFace = add(SCNCylinder(radius: 0.056, height: 0.01), satin, at: SCNVector3(returnX, knobY, face + 0.052), shadow: false, to: m)
+        lockFace.eulerAngles.x = .pi / 2
+        let key = add(SCNBox(width: 0.016, height: 0.07, length: 0.01, chamferRadius: 0), dark, at: SCNVector3(returnX, knobY, face + 0.056), shadow: false, to: m)
+        key.eulerAngles.z = 0.15
+
+        // exit bezel, take-out lip and hinge pins
+        let bezelPath = path(CGRect(x: -cg(exitW + 0.14) / 2, y: -cg(exitH + 0.14) / 2, width: cg(exitW + 0.14), height: cg(exitH + 0.14)), radius: 0.1)
+        bezelPath.append(path(CGRect(x: -cg(exitW) / 2, y: -cg(exitH) / 2, width: cg(exitW), height: cg(exitH)), radius: 0.06))
         bezelPath.usesEvenOddFillRule = true
         let bezel = SCNShape(path: bezelPath, extrusionDepth: 0.07)
         bezel.chamferRadius = 0.02
-        _ = add(bezel, shell, at: SCNVector3(0, exitY, face + 0.025))
+        _ = add(bezel, shell, at: SCNVector3(0, exitY, face + 0.025), to: m)
         _ = add(SCNBox(width: cg(exitW + 0.14), height: 0.06, length: 0.16, chamferRadius: 0.025), shell,
-                at: SCNVector3(0, exitY - exitH / 2 - 0.1, face + 0.06))
+                at: SCNVector3(0, exitY - exitH / 2 - 0.1, face + 0.06), to: m)
+        for sx: Float in [-1, 1] {
+            let pin = add(SCNCylinder(radius: 0.018, height: 0.05), chrome,
+                          at: SCNVector3(sx * (exitW / 2 - 0.01), exitY + exitH / 2 - 0.02, face + 0.05), shadow: false, to: m)
+            pin.eulerAngles.z = .pi / 2
+        }
 
-        // Smoked flap with the brand moulded into it
+        // smoked flap with the brand moulded into it (swings on the hero machine)
         flapPivot.position = SCNVector3(0, exitY + exitH / 2 - 0.02, face + 0.07)
         stage.addChildNode(flapPivot)
-        let flapMat = Mat.pbr(UIColor(hex: 0x101216), roughness: 0.25, clearCoat: 0.3)
-        flapMat.transparency = 0.92
+        let flapMat = Mat.pbr(UIColor(hex: 0x0F1115), roughness: 0.2, clearCoat: 0.6)
+        flapMat.transparency = 0.9
         flapMat.blendMode = .alpha
         flapMat.isDoubleSided = true
         flapMat.writesToDepthBuffer = false
-        let flap = add(SCNPlane(width: cg(exitW - 0.04), height: cg(exitH - 0.04)), flapMat,
-                       at: SCNVector3(0, -(exitH - 0.04) / 2, 0), shadow: false, to: flapPivot)
+        let fw = cg(exitW - 0.04), fh = cg(exitH - 0.04)
+        let flap = add(SCNPlane(width: fw, height: fh), flapMat, at: SCNVector3(0, -(exitH - 0.04) / 2, 0), shadow: false, to: flapPivot)
         flap.renderingOrder = 11
-        let flapImg = renderLabel(size: CGSize(width: 512, height: 440)) { _, size in
-            let f = roundedFont(120, .black)
-            for (t, dy) in [("GOT", -66.0), ("CHA", 66.0)] {
-                drawText(t, font: f, color: UIColor.black.withAlphaComponent(0.35), center: CGPoint(x: size.width / 2 + 3, y: size.height / 2 + dy + 3))
-                drawText(t, font: f, color: UIColor.white.withAlphaComponent(0.1), center: CGPoint(x: size.width / 2, y: size.height / 2 + dy))
-            }
+        if let img = tex("flap") {
+            let mould = Mat.label(img)
+            mould.writesToDepthBuffer = false
+            let n = add(SCNPlane(width: fw, height: fh), mould, at: SCNVector3(0, -(exitH - 0.04) / 2, 0.003), shadow: false, to: flapPivot)
+            n.renderingOrder = 12
         }
-        let flapLabelMat = Mat.label(flapImg)
-        flapLabelMat.writesToDepthBuffer = false
-        let flapLabel = add(SCNPlane(width: cg(exitW - 0.04), height: cg(exitH - 0.04)), flapLabelMat,
-                            at: SCNVector3(0, -(exitH - 0.04) / 2, 0.003), shadow: false, to: flapPivot)
-        flapLabel.renderingOrder = 12
 
-        // Coin slot and coin-return button
-        let boss = add(SCNCone(topRadius: 0.12, bottomRadius: 0.13, height: 0.05), grey, at: SCNVector3(slotX, slotY, face + 0.025))
-        boss.eulerAngles.x = .pi / 2
-        _ = add(SCNBox(width: 0.035, height: 0.15, length: 0.02, chamferRadius: 0), dark, at: SCNVector3(slotX, slotY, face + 0.052), shadow: false)
-        let btn = add(SCNCone(topRadius: 0.075, bottomRadius: 0.085, height: 0.06), grey, at: SCNVector3(returnX, knobY, face + 0.03))
-        btn.eulerAngles.x = .pi / 2
-        let btnFace = add(SCNCylinder(radius: 0.05, height: 0.01), dark, at: SCNVector3(returnX, knobY, face + 0.062), shadow: false)
-        btnFace.eulerAngles.x = .pi / 2
-
-        // Knob: a big white dial with a raised paddle across it
+        // Knob: a moulded white dial (lathe profile: a stepped rim rising to a shallow dome) with a raised paddle
         knob.position = SCNVector3(0, knobY, face)
         knob.name = "knob"
         stage.addChildNode(knob)
-        let dialMat = Mat.pbr(UIColor(hex: 0xFAF8F2), roughness: 0.35, clearCoat: 0.6)
-        let disk = add(SCNCone(topRadius: 0.39, bottomRadius: 0.42, height: 0.1), dialMat, at: SCNVector3(0, 0, 0.05), to: knob)
-        disk.eulerAngles.x = .pi / 2
-        let dome = add(Geo.hemisphere(radius: 0.37, upper: true), dialMat, at: SCNVector3(0, 0, 0.1), to: knob)
-        dome.scale = SCNVector3(1, 0.22, 1)
-        dome.eulerAngles.x = .pi / 2
-        let rim = add(SCNTorus(ringRadius: 0.405, pipeRadius: 0.022), trim, at: SCNVector3(0, 0, 0.1), to: knob)
-        rim.eulerAngles.x = .pi / 2
+        let profile: [(Float, Float)] = [(0.425, 0), (0.425, 0.04), (0.415, 0.062), (0.395, 0.072), (0.37, 0.078),
+                                         (0.3, 0.098), (0.2, 0.112), (0.1, 0.12), (0, 0.122)]
+        let dial = add(Geo.lathe(profile), dialMat, at: SCNVector3(0, 0, 0), to: knob)
+        dial.eulerAngles.x = .pi / 2
+        let paddle = SCNShape(path: path(CGRect(x: -0.35, y: -0.065, width: 0.7, height: 0.13), radius: 0.065), extrusionDepth: 0.21)
+        paddle.chamferRadius = 0.035
         gripMaterial.emission.contents = Palette.blue
         gripMaterial.emission.intensity = 0
-        _ = add(SCNBox(width: 0.74, height: 0.18, length: 0.24, chamferRadius: 0.08), gripMaterial, at: SCNVector3(0, 0, 0.2), to: knob)
+        _ = add(paddle, gripMaterial, at: SCNVector3(0, 0, 0.16), to: knob)
         knob.enumerateHierarchy { n, _ in n.name = n.name ?? "knob" }
     }
 
-    /// An original card in the spirit of the printed capsule-toy cards.
-    private func cardImage() -> UIImage {
-        renderLabel(size: CGSize(width: 768, height: 586)) { g, size in
-            let w = size.width, h = size.height
-            let colors = [UIColor(hex: 0x9FC4FB).cgColor, UIColor(hex: 0x5F97EA).cgColor] as CFArray
-            if let grad = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 1]) {
-                g.drawLinearGradient(grad, start: .zero, end: CGPoint(x: 0, y: h), options: [])
+    /// The other machines in the row: copies of the hero with their own card, a static dial and a pile of capsules.
+    private func buildNeighbors() {
+        let rows: [(Float, String, [UInt32])] = [
+            (-1, "snack", [0xF59BB8, 0xF7C66A, 0x9BE29B, 0xFFFFFF]),
+            (1, "cloud", [0xB8AFF0, 0xA8DCD1, 0xFFFFFF, 0x8FA8F0])
+        ]
+        for (side, variant, tints) in rows {
+            let n = SCNNode()
+            n.position = SCNVector3(side * pitch, 0, 0)
+            let body = machineNode.clone()
+            if let cardNode = body.childNode(withName: "card", recursively: true),
+               let g = cardNode.geometry?.copy() as? SCNGeometry {
+                g.materials = [Mat.label(tex("card-\(variant)") ?? UIImage())]
+                cardNode.geometry = g
             }
-            g.setFillColor(UIColor.white.withAlphaComponent(0.55).cgColor) // clouds
-            for (cx, cy, r) in [(90.0, 120.0, 46.0), (140, 110, 36), (640, 90, 40), (690, 104, 30), (600, 420, 34)] {
-                g.fillEllipse(in: CGRect(x: cx - r, y: cy - r, width: r * 2, height: r * 2))
+            n.addChildNode(body)
+            let k = knob.clone()
+            k.eulerAngles.z = side * 0.6
+            k.enumerateHierarchy { node, _ in
+                node.name = "deco" // not tappable
+                if let g = node.geometry, g.firstMaterial === self.gripMaterial, let gc = g.copy() as? SCNGeometry {
+                    gc.materials = [self.neighborGrip]
+                    node.geometry = gc
+                }
             }
-            g.setFillColor(Palette.yellow.cgColor) // corner burst
-            for i in 0..<24 {
-                let a = CGFloat(i) / 24 * 2 * .pi, r: CGFloat = i % 2 == 1 ? 54 : 66
-                let p = CGPoint(x: 670 + cos(a) * r, y: 396 + sin(a) * r)
-                if i == 0 { g.move(to: p) } else { g.addLine(to: p) }
+            n.addChildNode(k)
+            n.addChildNode(flapPivot.clone())
+            for (i, c) in pile.prefix(20).enumerated() {
+                let cap = makeCapsule(color: UIColor(hex: tints[i % tints.count]), interactive: false)
+                cap.position = SCNVector3(c.position.x, baseY[ObjectIdentifier(c)] ?? c.position.y, c.position.z)
+                cap.eulerAngles = SCNVector3(c.eulerAngles.x, c.eulerAngles.y + side, c.eulerAngles.z)
+                n.addChildNode(cap)
             }
-            g.closePath(); g.fillPath()
-            drawText("1", font: roundedFont(30, .black), color: Palette.blueInk, center: CGPoint(x: 670, y: 378))
-            drawText("TURN", font: roundedFont(20, .bold), color: Palette.blueInk, center: CGPoint(x: 670, y: 408))
-            let title = roundedFont(64, .black)
-            for (t, y) in [("Daily", 92.0), ("Affirmations", 158.0)] {
-                drawOutlinedText(t, font: title, fill: .white, stroke: Palette.blueInk, strokePercent: 22, center: CGPoint(x: w / 2, y: y))
-            }
-            fillRounded(g, CGRect(x: w / 2 - 150, y: 196, width: 300, height: 40), 20, .white)
-            drawText("Collect all 9 messages", font: roundedFont(22, .bold), color: Palette.blue, center: CGPoint(x: w / 2, y: 216))
-            // three capsules with a rolled message peeking out
-            for (cx, cy, col) in [(200.0, 340.0, UIColor(hex: 0x2F6FD0)), (384, 330, UIColor.white), (568, 340, UIColor(hex: 0x5C94E3))] {
-                let c = CGPoint(x: cx, y: cy)
-                g.setFillColor(UIColor(hex: 0x1C4A94).withAlphaComponent(0.18).cgColor)
-                g.fillEllipse(in: CGRect(x: cx - 62, y: cy + 62, width: 124, height: 24))
-                g.setStrokeColor(UIColor(hex: 0x1C4A94).withAlphaComponent(0.35).cgColor); g.setLineWidth(3)
-                g.setFillColor(col.cgColor)
-                g.addArc(center: CGPoint(x: cx, y: cy + 6), radius: 64, startAngle: 0, endAngle: .pi, clockwise: false)
-                g.drawPath(using: .fillStroke)
-                g.setFillColor(UIColor.white.withAlphaComponent(0.7).cgColor)
-                g.addArc(center: c, radius: 64, startAngle: .pi, endAngle: 2 * .pi, clockwise: false)
-                g.drawPath(using: .fillStroke)
-                g.saveGState()
-                g.translateBy(x: cx + 6, y: cy - 6); g.rotate(by: -0.5)
-                fillRounded(g, CGRect(x: -14, y: -60, width: 28, height: 86), 10, UIColor(hex: 0xFFF6EA))
-                g.setStrokeColor(UIColor(hex: 0x1C4A94).cgColor); g.setLineWidth(4)
-                g.move(to: CGPoint(x: -14, y: -30)); g.addLine(to: CGPoint(x: 14, y: -30)); g.strokePath()
-                g.restoreGState()
-            }
-            // the fine-print strip real cards carry along the bottom
-            g.setFillColor(UIColor.white.cgColor); g.fill(CGRect(x: 0, y: h - 104, width: w, height: 104))
-            g.setFillColor(Palette.yellow.cgColor); g.fill(CGRect(x: 24, y: h - 92, width: 120, height: 18))
-            g.setFillColor(UIColor(hex: 0x282C34).withAlphaComponent(0.25).cgColor)
-            for i in 0..<4 { g.fill(CGRect(x: 24, y: h - 64 + CGFloat(i) * 14, width: w * (0.5 + CGFloat(i % 3) * 0.12), height: 5)) }
-            drawText("Gotcha", font: roundedFont(26, .black), color: Palette.blue, center: CGPoint(x: w - 24, y: h - 44), align: .right)
-        }
-    }
-
-    /// The printed face of the mechanism unit: dial rings, coin badge, counter window, stickers and the exit mouth.
-    private func faceImage(lw: Float, lh: Float, ly: Float) -> UIImage {
-        let cw: CGFloat = 1024, ch = CGFloat((1024 * lh / lw).rounded())
-        let toX = { (x: Float) -> CGFloat in CGFloat((x + lw / 2) / lw) * cw }
-        let toY = { (y: Float) -> CGFloat in CGFloat((ly + lh / 2 - y) / lh) * ch }
-        let px = { (u: Float) -> CGFloat in CGFloat(u / lw) * cw }
-        let kY = knobY, eY = exitY, eW = exitW, eH = exitH, sX = slotX, sY = slotY
-        let ringBlue = Palette.ringBlue
-        return renderLabel(size: CGSize(width: cw, height: ch)) { g, _ in
-            let kx = toX(0), ky = toY(kY)
-            // yellow arc with a clockwise arrowhead, then the thick blue ring around the dial
-            let rY = px(0.545), rB = px(0.465)
-            let a0 = CGFloat.pi * 0.62, a1 = CGFloat.pi * 2.32
-            g.setStrokeColor(Palette.yellow.cgColor); g.setLineWidth(px(0.05))
-            g.addArc(center: CGPoint(x: kx, y: ky), radius: rY, startAngle: a0, endAngle: a1, clockwise: false); g.strokePath()
-            arrowHead(g, kx + rY * cos(a1), ky + rY * sin(a1), a1 + .pi / 2, px(0.09), Palette.yellow)
-            g.setStrokeColor(ringBlue.cgColor); g.setLineWidth(px(0.09))
-            g.strokeEllipse(in: CGRect(x: kx - rB, y: ky - rB, width: rB * 2, height: rB * 2))
-            let rW = rB - px(0.045)
-            g.setFillColor(UIColor(hex: 0xD9D1BF).cgColor)
-            g.fillEllipse(in: CGRect(x: kx - rW, y: ky - rW, width: rW * 2, height: rW * 2))
-            g.setFillColor(ringBlue.cgColor)
-            g.fill(CGRect(x: kx - rY - px(0.2), y: ky - px(0.03), width: px(0.12), height: px(0.06)))
-            arrowHead(g, kx - rY - px(0.06), ky, 0, px(0.06), ringBlue)
-
-            // COIN IN badge pointing at the slot
-            let bx = toX(-0.44), by = toY(2.35), bw = px(0.9), bh = px(0.2)
-            fillRounded(g, CGRect(x: bx, y: by, width: bw, height: bh), bh / 2, ringBlue)
-            g.setStrokeColor(ringBlue.cgColor); g.setLineWidth(4); g.setFillColor(UIColor.white.cgColor)
-            for i in 0..<3 {
-                let cx = bx + px(0.13) + CGFloat(i) * px(0.065), r = px(0.07)
-                g.addEllipse(in: CGRect(x: cx - r, y: by + bh / 2 - r, width: r * 2, height: r * 2)); g.drawPath(using: .fillStroke)
-            }
-            drawText("COIN IN", font: roundedFont(px(0.1), .black), color: .white, center: CGPoint(x: bx + px(0.34), y: by + bh / 2), align: .left)
-            arrowHead(g, bx + bw + px(0.06), by + bh / 2, 0, px(0.06), ringBlue)
-            let sr = px(0.17)
-            g.setFillColor(UIColor(hex: 0xD9D4C8).cgColor)
-            g.fillEllipse(in: CGRect(x: toX(sX) - sr, y: toY(sY) - sr, width: sr * 2, height: sr * 2))
-
-            // coin badge and green counter window, top left
-            fillRounded(g, CGRect(x: toX(-1.05), y: toY(2.36), width: px(0.26), height: px(0.26)), 8, ringBlue)
-            let cr = px(0.08)
-            g.setFillColor(UIColor.white.cgColor)
-            g.fillEllipse(in: CGRect(x: toX(-0.92) - cr, y: toY(2.23) - cr, width: cr * 2, height: cr * 2))
-            drawText("1", font: roundedFont(px(0.08), .black), color: ringBlue, center: CGPoint(x: toX(-0.92), y: toY(2.23)))
-            fillRounded(g, CGRect(x: toX(-1.06), y: toY(1.98), width: px(0.4), height: px(0.16)), 6, UIColor(hex: 0x2B2F36))
-            fillRounded(g, CGRect(x: toX(-1.04), y: toY(1.96), width: px(0.36), height: px(0.12)), 4, UIColor(hex: 0x46C774))
-            drawText("1 TURN", font: roundedFont(px(0.075), .black), color: UIColor(hex: 0x0E3B1F), center: CGPoint(x: toX(-0.86), y: toY(1.9)))
-
-            // instruction sticker (left)
-            let sx = toX(-1.06), sy = toY(1.5), sw = px(0.34), sh = px(0.3)
-            fillRounded(g, CGRect(x: sx, y: sy, width: sw, height: sh), 8, .white)
-            g.setStrokeColor(ringBlue.cgColor); g.setLineWidth(3)
-            g.addPath(UIBezierPath(roundedRect: CGRect(x: sx, y: sy, width: sw, height: sh), cornerRadius: 8).cgPath); g.strokePath()
-            arrowHead(g, sx + 18, sy + 22, 0, 10, UIColor(hex: 0xD8352A))
-            for (i, t) in ["Turn the", "handle slowly,", "one full turn."].enumerated() {
-                drawText(t, font: roundedFont(px(0.045), .bold), color: UIColor(hex: 0x2B2F36),
-                         center: CGPoint(x: sx + (i == 0 ? 32 : 10), y: sy + 22 + CGFloat(i) * px(0.065)), align: .left)
-            }
-            // notice sticker (right)
-            let nx = toX(0.6), ny = toY(1.3), nw = px(0.46), nh = px(0.44)
-            fillRounded(g, CGRect(x: nx, y: ny, width: nw, height: nh), 8, .white)
-            g.setFillColor(Palette.yellow.cgColor); g.fill(CGRect(x: nx + 8, y: ny + 8, width: nw - 16, height: 18))
-            g.setFillColor(UIColor(hex: 0x282C34).withAlphaComponent(0.28).cgColor)
-            var lineY = ny + 38
-            while lineY < ny + nh - 10 {
-                let k = CGFloat(Int(lineY * 7) % 5) / 5
-                g.fill(CGRect(x: nx + 12, y: lineY, width: (nw - 24) * (0.6 + 0.4 * k), height: 5))
-                lineY += 13
-            }
-            // coin return pocket and the dark take-out mouth behind the flap
-            fillRounded(g, CGRect(x: toX(0.62), y: toY(0.7), width: px(0.24), height: px(0.3)), 8, UIColor(hex: 0xD9D4C8))
-            fillRounded(g, CGRect(x: toX(0.66), y: toY(0.64), width: px(0.16), height: px(0.2)), 6, UIColor(hex: 0xC6C0B2))
-            let ex = toX(-eW / 2), ey = toY(eY + eH / 2), ew = px(eW), eh = px(eH)
-            g.saveGState()
-            g.addPath(UIBezierPath(roundedRect: CGRect(x: ex, y: ey, width: ew, height: eh), cornerRadius: px(0.06)).cgPath); g.clip()
-            let colors = [UIColor(hex: 0x08090B).cgColor, UIColor(hex: 0x24272D).cgColor] as CFArray
-            if let grad = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 1]) {
-                g.drawLinearGradient(grad, start: CGPoint(x: 0, y: ey), end: CGPoint(x: 0, y: ey + eh), options: [])
-            }
-            g.restoreGState()
+            stage.addChildNode(n)
         }
     }
 
